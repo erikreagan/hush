@@ -27,6 +27,21 @@ public final class Pipeline: @unchecked Sendable {
         set { mutedFlag.store(newValue, ordering: .relaxed) }
     }
 
+    private let highPassOn = Atomic<Bool>(false)
+    private let highPassHzBits = Atomic<UInt32>(Float(80).bitPattern)
+    private let inputGainBits = Atomic<UInt32>(Float(1).bitPattern)
+    private let outputGainBits = Atomic<UInt32>(Float(1).bitPattern)
+    /// Optional rumble filter ahead of the noise engine (12 dB/octave).
+    public func setHighPass(enabled: Bool, hz: Float) {
+        highPassOn.store(enabled, ordering: .relaxed)
+        highPassHzBits.store(max(20, min(500, hz)).bitPattern, ordering: .relaxed)
+    }
+    /// Input trim is applied before the engine, output trim after it. Both ramp, never jump.
+    public func setGains(inputDB: Float, outputDB: Float) {
+        inputGainBits.store(pow(10, inputDB / 20).bitPattern, ordering: .relaxed)
+        outputGainBits.store(pow(10, outputDB / 20).bitPattern, ordering: .relaxed)
+    }
+
     // Meter: written on the audio thread, read from the main thread.
     private let peakBits = Atomic<UInt32>(0)
     private let meanSquareBits = Atomic<UInt32>(0)
@@ -60,6 +75,10 @@ public final class Pipeline: @unchecked Sendable {
     private var mix: Float = 1    // 0 = raw, 1 = engine
     private var gain: Float = 1
     private var heldPeak: Float = 0
+    private var inputGain: Float = 1
+    private var highPassMix: Float = 0          // 0 = filter out of circuit, 1 = in
+    private var highPassHz: Float = 0           // frequency the coefficients below were computed for
+    private var b0 = 1.0, b1 = 0.0, b2 = 0.0, a1 = 0.0, a2 = 0.0, z1 = 0.0, z2 = 0.0
     private var meanSquare: Float = 0
 
     // Test recorder taps: filled on the audio thread while `recording`, drained by recordTest().
@@ -229,6 +248,32 @@ public final class Pipeline: @unchecked Sendable {
         let isRecording = recording.load(ordering: .relaxed)
         if isRecording { rawTap.write(dry, count: n) }
 
+        // Input trim + high-pass. The filter always runs so switching it in/out is a 50 ms blend, not a click.
+        let hz = Float(bitPattern: highPassHzBits.load(ordering: .relaxed))
+        if hz != highPassHz {
+            highPassHz = hz
+            let w = 2 * Double.pi * Double(hz) / Self.sampleRate, alpha = sin(w) / (2 * 0.7071), a0 = 1 + alpha
+            b0 = (1 + cos(w)) / 2 / a0; b1 = -(1 + cos(w)) / a0; b2 = b0
+            a1 = -2 * cos(w) / a0; a2 = (1 - alpha) / a0
+        }
+        let highPassTarget: Float = highPassOn.load(ordering: .relaxed) ? 1 : 0
+        let inputTarget = Float(bitPattern: inputGainBits.load(ordering: .relaxed))
+        let blendStep = 1 / Float(0.05 * Self.sampleRate)
+        for i in 0..<n {
+            if inputGain != inputTarget {
+                inputGain += (inputTarget - inputGain) * 0.002
+                if abs(inputTarget - inputGain) < 1e-5 { inputGain = inputTarget }
+            }
+            if highPassMix != highPassTarget {
+                highPassMix = highPassTarget > highPassMix ? min(1, highPassMix + blendStep) : max(0, highPassMix - blendStep)
+            }
+            let x = Double(dry[i] * inputGain)
+            let y = b0 * x + z1
+            z1 = b1 * x - a1 * y + z2
+            z2 = b2 * x - a2 * y
+            dry[i] = Float(x + Double(highPassMix) * (y - x))
+        }
+
         if let engine {
             // ponytail: the engine keeps running while bypassed so toggling is instant and click-free.
             // Costs idle CPU; skip processing once mix has settled at 0 if that ever matters.
@@ -248,7 +293,7 @@ public final class Pipeline: @unchecked Sendable {
             memcpy(wet, dry, n * 4)
         }
 
-        let gainTarget: Float = mutedFlag.load(ordering: .relaxed) ? 0 : 1
+        let gainTarget: Float = mutedFlag.load(ordering: .relaxed) ? 0 : Float(bitPattern: outputGainBits.load(ordering: .relaxed))
         let gainStep = 1 / Float(0.01 * Self.sampleRate)   // 10 ms mute ramp
         var peak: Float = 0, sum: Float = 0
         for i in 0..<n {

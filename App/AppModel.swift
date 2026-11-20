@@ -3,6 +3,7 @@ import AppKit
 import CoreAudio
 import HushAudio
 import Observation
+import ServiceManagement
 import UserNotifications
 
 enum Strength: String, CaseIterable, Identifiable {
@@ -17,7 +18,9 @@ enum Strength: String, CaseIterable, Identifiable {
 @MainActor @Observable
 final class AppModel {
     private let pipeline = Pipeline()
-    private let defaults = UserDefaults.standard
+    /// `Hush --snapshot out.png` renders the popover to an image and exits, without touching audio or settings.
+    static let isSnapshot = CommandLine.arguments.contains("--snapshot")
+    private let defaults = isSnapshot ? UserDefaults(suiteName: "com.erikreagan.hush.snapshot")! : .standard
     private var wetDry: Float = 0
     private var rampTask: Task<Void, Never>?
     private var peakHeldAt = Date.distantPast
@@ -29,6 +32,27 @@ final class AppModel {
     var enabled: Bool { didSet { defaults.set(enabled, forKey: "enabled"); pipeline.enabled = enabled && !comparing } }
     /// A/B: true while the hold-to-compare button is down (momentary bypass, never saved).
     var comparing = false { didSet { pipeline.enabled = enabled && !comparing } }
+    // Settings (all persisted).
+    var highPassEnabled: Bool { didSet { defaults.set(highPassEnabled, forKey: "highPassEnabled"); applyProcessing() } }
+    var highPassHz: Double { didSet { defaults.set(highPassHz, forKey: "highPassHz"); applyProcessing() } }
+    var inputGainDB: Double { didSet { defaults.set(inputGainDB, forKey: "inputGainDB"); applyProcessing() } }
+    var outputGainDB: Double { didSet { defaults.set(outputGainDB, forKey: "outputGainDB"); applyProcessing() } }
+    var claimDefaultOnLaunch: Bool { didSet { defaults.set(claimDefaultOnLaunch, forKey: "claimDefaultOnLaunch") } }
+    var restoreDefaultOnQuit: Bool { didSet { defaults.set(restoreDefaultOnQuit, forKey: "restoreDefaultOnQuit") } }
+    var port: Int { didSet { defaults.set(port, forKey: "port") } }
+    var launchAtLogin: Bool {
+        didSet {
+            guard launchAtLogin != oldValue else { return }
+            do { try launchAtLogin ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister() }
+            catch { loginItemError = "\(error.localizedDescription)" }
+            defaults.set(launchAtLogin, forKey: "launchAtLogin")
+        }
+    }
+    var loginItemError: String?
+    var engineInfo = ""
+    private var claimedDefault = false
+    private var terminateSignal: DispatchSourceSignal?
+
     var recordingTest = false
     var testResult: String?
     var testFiles: [URL] = []
@@ -47,6 +71,15 @@ final class AppModel {
     var overruns = 0
     var engineNote: String?
 
+    /// One line under the title saying what apps are hearing right now.
+    var statusLine: String {
+        if error != nil { return "Not running" }
+        let mic = selectedDevice?.name ?? "your microphone"
+        if muted { return "Muted — apps hear silence" }
+        if comparing { return "Comparing — raw \(mic)" }
+        return enabled ? "Cleaning up \(mic)" : "Off — raw \(mic)"
+    }
+
     var selectedDevice: AudioDevice? { devices.first { $0.uid == inputUID } }
 
     var icon: String {
@@ -60,8 +93,28 @@ final class AppModel {
         channel = defaults.integer(forKey: "channel")
         enabled = defaults.object(forKey: "enabled") as? Bool ?? true
         strength = Strength(rawValue: defaults.string(forKey: "strength") ?? "") ?? .medium
+        highPassEnabled = defaults.bool(forKey: "highPassEnabled")
+        highPassHz = defaults.object(forKey: "highPassHz") as? Double ?? 80
+        inputGainDB = defaults.double(forKey: "inputGainDB")
+        outputGainDB = defaults.double(forKey: "outputGainDB")
+        claimDefaultOnLaunch = defaults.object(forKey: "claimDefaultOnLaunch") as? Bool ?? true
+        restoreDefaultOnQuit = defaults.object(forKey: "restoreDefaultOnQuit") as? Bool ?? true
+        port = defaults.object(forKey: "port") as? Int ?? 47823
+        launchAtLogin = SMAppService.mainApp.status == .enabled
         pipeline.enabled = enabled
         wetDry = strength.wetDryPercent
+        applyProcessing()
+
+        if Self.isSnapshot { return }
+
+        // Quit (menu, logout, or `kill`): hand the default input back before we go silent.
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.restoreDefaultInput() }
+        }
+        signal(SIGTERM, SIG_IGN)
+        terminateSignal = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        terminateSignal?.setEventHandler { NSApplication.shared.terminate(nil) }
+        terminateSignal?.resume()
 
         // Hot-plug: Core Audio tells us whenever a device appears or disappears.
         var devicesAddress = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDevices,
@@ -75,9 +128,10 @@ final class AppModel {
         }
 
         server.onCommand = { [weak self] in self?.handle(command: $0) }
-        server.start(port: UInt16(clamping: defaults.object(forKey: "port") as? Int ?? 47823))
+        server.start(port: UInt16(clamping: port))
 
         Task {
+            if defaults.object(forKey: "launchAtLogin") == nil { launchAtLogin = true }   // spec default: ON
             if await AVCaptureDevice.requestAccess(for: .audio) {
                 restart()
             } else {
@@ -116,7 +170,9 @@ final class AppModel {
             try pipeline.start(input: device.id, channel: min(channel, device.inputChannels - 1), output: feed)
             pipeline.engine?.setWetDry(percent: wetDry)
             engineNote = pipeline.engineError.map { "Noise engine unavailable (\($0)) — passing raw mic through" }
+            engineInfo = pipeline.engine.map { "Reported latency: \($0.latencyFrames) frames\n\($0.parameterDump)" } ?? ""
             error = nil
+            claimDefaultInput()
         } catch {
             self.error = "\(error)"
         }
@@ -194,6 +250,29 @@ final class AppModel {
             "enabled": enabled, "muted": muted, "strength": strength.rawValue, "engine": "apple",
             "inputConnected": error == nil, "driverInstalled": driverInstalled,
         ], onlyIfChanged: true)
+    }
+
+    private func applyProcessing() {
+        pipeline.setHighPass(enabled: highPassEnabled, hz: Float(highPassHz))
+        pipeline.setGains(inputDB: Float(inputGainDB), outputDB: Float(outputGainDB))
+    }
+
+    /// Once per launch, and only once audio is actually flowing: make Hush Mic the Mac's default input,
+    /// remembering what it replaced.
+    private func claimDefaultInput() {
+        guard claimDefaultOnLaunch, !claimedDefault, let mic = Devices.device(uid: Devices.micUID) else { return }
+        claimedDefault = true
+        let current = Devices.defaultInput
+        guard current != mic else { return }   // already ours (e.g. after a crash): keep the saved previous mic
+        defaults.set(Devices.uid(of: current), forKey: "previousDefaultInputUID")
+        Devices.defaultInput = mic
+    }
+
+    /// Only restores if Hush Mic is still the default — never stomps a manual change.
+    private func restoreDefaultInput() {
+        guard restoreDefaultOnQuit, let mic = Devices.device(uid: Devices.micUID), Devices.defaultInput == mic,
+              let previous = defaults.string(forKey: "previousDefaultInputUID").flatMap(Devices.device(uid:)) else { return }
+        Devices.defaultInput = previous
     }
 
     func makeHushMicDefault() {

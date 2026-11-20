@@ -43,6 +43,8 @@ public enum Devices {
         return value.takeRetainedValue() as String
     }
 
+    public static func uid(of id: AudioDeviceID) -> String { string(id, kAudioDevicePropertyDeviceUID) }
+
     static func inputChannelCount(_ id: AudioDeviceID) -> Int {
         var addr = address(kAudioDevicePropertyStreamConfiguration, kAudioObjectPropertyScopeInput), size: UInt32 = 0
         guard AudioObjectGetPropertyDataSize(id, &addr, 0, nil, &size) == noErr, size > 0 else { return 0 }
