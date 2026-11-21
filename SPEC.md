@@ -296,7 +296,7 @@ hush/
 
 Build in this order. Each milestone should be demoable before moving on.
 
-**Status (2026-11-20, end of day):** Driver installed; app running against a Lewitt CONNECT 2 (44.1 kHz) — the Audient iD2 arrives 2026-11-22. M1, M2, and M5 are built. Erik's first 30-second listening test confirmed the noise removal is clearly audible ("great starting point"); a detailed listening pass (voice naturalness, typing suppression, how the delay feels on calls) is still open. Measured: ~76 ms added delay, zero dropouts over a 13-minute partial soak, room noise floor −56 → −72 dBFS on Medium, test recordings free of gaps and clicks. **The full 30-minute soak (`node scripts/test-control.mjs 1800`) has not completed.** M3 is mostly built (see below). M4, M6, M7 not started.
+**Status (2026-11-20, end of day):** Driver installed; app running against a Lewitt CONNECT 2 (44.1 kHz) — the Audient iD2 arrives 2026-11-22. M1, M2, and M5 are built. Erik's first 30-second listening test confirmed the noise removal is clearly audible ("great starting point"); a detailed listening pass (voice naturalness, typing suppression, how the delay feels on calls) is still open. Measured: ~76 ms added delay, room noise floor −56 → −72 dBFS on Medium, test recordings free of gaps and clicks. The 30-minute soak (`node scripts/test-control.mjs 1800`) passed on the CONNECT 2 with the Apple engine on Medium: zero underruns and overruns, delay steady at 76 ms, ~1% CPU, 38 MB memory (quiet room, no speech). It needs repeating on the Audient iD2. M3 is mostly built (see below). M4, M6, M7 not started.
 
 **M1 — Passthrough plumbing** *(built; acceptance pending)*
 - Driver builds and installs; "Hush Mic" appears in System Settings → Sound → Input.
