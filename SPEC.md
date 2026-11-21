@@ -39,7 +39,7 @@ I control it from the menu bar and from an Elgato Stream Deck (toggle, strength 
 |---|---|
 | OS | macOS 15+ (Sequoia), Apple silicon only |
 | App | Swift 6, SwiftUI `MenuBarExtra` (`.window` style), no Dock icon (`LSUIElement = YES`) |
-| Project format | One Swift package at the repo root (no Xcode project). `scripts/build-app.sh` runs `swift build` and assembles + signs `build/Hush.app`. The package opens in Xcode for editing and debugging |
+| Project format | One Swift package at the repo root (no Xcode project). `scripts/build-app.sh` runs `swift build` and assembles + signs `build/Hush.app`. The package opens in Xcode for editing and debugging. The script also stamps the binary with the real SDK version (`vtool`): SwiftPM labels it as built for macOS 15, which makes macOS draw the app in its legacy look |
 | Audio | Core Audio (AUHAL) for capture/render; AudioToolbox for AUSoundIsolation |
 | DeepFilterNet | Rust `libDF` built as a static library with a C ABI, linked into the app (see §6.3). Rust is not yet installed on the build Mac |
 | Driver | BlackHole (upstream submodule), compiled by script with `clang` and preprocessor definitions |
@@ -186,20 +186,22 @@ Pass-through (with HPF and gain still applied). Not a separate engine in the UI 
 - Muted — `mic.slash.fill`
 - Error (mic missing / driver missing / app can't open device) — `exclamationmark.triangle`
 
-**Built so far (M1 + M2):** items 1–4 and 8 below, plus Quit. Until the Settings window exists, the popover also holds the microphone and input-channel pickers and a one-line readout of added delay, drift, and dropouts. On first run the mic defaults to the Audient iD2 if connected, otherwise the current system input. Persisted so far: mic, channel, noise removal on/off, strength (mute is deliberately not restored).
+**Popover as built** (300 pt wide, styled after the system's Control Center panels; top to bottom):
+1. Header: "Hush" with a one-line status of what apps are hearing ("Cleaning up <mic>", "Off — raw <mic>", "Muted — apps hear silence"), and the master **Noise Removal** switch on the right.
+2. Error banner (red tint, Retry button) — only when something is wrong.
+3. Live level meter (post-processing) with peak-hold tick; green through the speaking range, yellow then red near clipping.
+4. **Strength:** full-width custom segments **Light · Medium · Max**; the selected one is filled with the accent colour. (Custom because the system segmented control won't stretch to the panel width.)
+5. Two tiles: **Mute** (icon circle turns solid red when muted) and **Compare** (press and hold for the raw mic — the A/B control).
+6. Warning banners, only when relevant: noise engine unavailable; Hush Mic isn't the default input (with a "Make Default" button). There is no always-on "default input ✓" line.
+7. Menu-style rows with hover highlights: Record 30-Second Test (then "Show Last Test in Finder"), Settings… (⌘,), Quit Hush (⌘Q).
 
-**Popover contents (top to bottom):**
-1. Big toggle: **Noise Removal On/Off**
-2. **Mute** button (with hotkey hint)
-3. Live input meter (post-processing), with peak hold
-4. Strength: segmented control **Light · Medium · Max**
-5. Engine: segmented control **Apple · DeepFilterNet**
-6. **Listen** toggle — route processed audio to a chosen output (e.g., iD2 headphones) for self-monitoring
-7. **A/B** hold-to-compare button (momentary bypass while held)
-8. Status line: "Hush Mic is your default input ✓" or "Make Hush Mic the default input" button
-9. Footer: Settings… · Quit
+Still to add to the popover: the engine switch **Apple · DeepFilterNet** (M4), the **Listen** toggle, and a hotkey hint on Mute. The delay / drift / dropouts readout lives in Settings → Diagnostics, not the popover.
+
+`build/Hush.app/Contents/MacOS/Hush --snapshot out.png` renders the popover in several states, light and dark, to an image without starting audio or touching settings — use it to review UI changes.
 
 **Settings window:**
+Built: Input, Processing (high-pass + output trim), System, Stream Deck (port, client count), and Diagnostics (delay, drift, under/overruns, engine parameter dump). Not built: Shortcuts, the DFN options, per-engine custom strength, CPU %, and the test-record button (it's in the popover instead).
+
 - *Input:* device picker (default: Audient iD2), channel picker (default: 1), input gain trim
 - *Processing:* HPF on/off + frequency slider; per-engine custom strength; DFN low-latency model toggle; DFN post-filter beta
 - *System:* Launch at login (default ON); Set Hush Mic as default input on launch (default ON); restore previous default input on quit (default ON)
@@ -294,9 +296,7 @@ hush/
 
 Build in this order. Each milestone should be demoable before moving on.
 
-**Status (2026-11-20):** Driver installed; app running against a Lewitt CONNECT 2 (44.1 kHz) — the Audient iD2 arrives 2026-11-22. M1, M2, and M5 are built and verified by instruments (meters, counters, WAV analysis) but **nobody has listened yet**: every ✅ below that says "audibly" or "by ear" is still open. Measured so far: ~76 ms added delay, zero dropouts over a 13-minute partial soak, room noise floor −56 → −72 dBFS on Medium, 10-second test recording free of gaps and clicks. The full 30-minute soak (`node scripts/test-control.mjs 1800`) has not completed. M3 is partly built (see below). M4, M6, M7 not started.
-
-Deliberately held back until the ear test passes: launch at login, and automatically making Hush Mic the default input (the popover has a manual button).
+**Status (2026-11-20, end of day):** Driver installed; app running against a Lewitt CONNECT 2 (44.1 kHz) — the Audient iD2 arrives 2026-11-22. M1, M2, and M5 are built. Erik's first 30-second listening test confirmed the noise removal is clearly audible ("great starting point"); a detailed listening pass (voice naturalness, typing suppression, how the delay feels on calls) is still open. Measured: ~76 ms added delay, zero dropouts over a 13-minute partial soak, room noise floor −56 → −72 dBFS on Medium, test recordings free of gaps and clicks. **The full 30-minute soak (`node scripts/test-control.mjs 1800`) has not completed.** M3 is mostly built (see below). M4, M6, M7 not started.
 
 **M1 — Passthrough plumbing** *(built; acceptance pending)*
 - Driver builds and installs; "Hush Mic" appears in System Settings → Sound → Input.
@@ -308,11 +308,11 @@ Deliberately held back until the ear test passes: launch at login, and automatic
 - Parameter tree captured (see §2).
 - ✅ Fan noise and A/C hum are clearly reduced in a test recording; toggling makes no click.
 
-**M3 — Menu bar app complete** *(partly built)*
-- Built: hot-plug handling (silence + error + notification on unplug, auto-resume; never falls back to another mic), rebuild on wake, A/B hold-to-compare, 30-second test recorder (verified remotely; hot-plug, wake, and A/B are untested — they need someone at the Mac).
-- Not built: Settings window, high-pass filter, input/output gain trims, automatic default-input set/restore, launch at login, global hotkeys, Listen, Diagnostics screen, mid-session sample-rate change on the mic.
-- All popover + settings UI from §7, default-input management, launch at login, hot-plug handling, global hotkeys, Listen, A/B, 30-second test recorder.
-- ✅ Unplug and replug the iD2 mid-call → audio resumes on its own, with a notification on unplug.
+**M3 — Menu bar app complete** *(mostly built)*
+- Built and verified remotely: default-input management (claim on launch once audio is flowing; restore the previous input on quit or SIGTERM, only if Hush Mic is still the default), launch at login (registered; default ON), Settings window, high-pass filter (measured −3 dB at the cutoff, flat above), input/output gain trims, 30-second test recorder.
+- Built but untested (need someone at the Mac): hot-plug handling (silence + error + notification on unplug, auto-resume; never falls back to another mic), rebuild on wake, A/B hold-to-compare, the Settings window's appearance.
+- Not built: global hotkeys, Listen (self-monitoring), CPU % in Diagnostics, per-engine custom strength, handling a mid-session sample-rate change on the mic.
+- ✅ Unplug and replug the mic mid-call → audio resumes on its own, with a notification on unplug.
 
 **M4 — DeepFilterNet engine**
 - libDF builds and links; engine selectable; crossfade on switch.
