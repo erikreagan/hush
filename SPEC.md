@@ -219,6 +219,7 @@ Built: Input, Processing (engine choice Apple · DeepFilterNet, hidden if DeepFi
 - A preset's contents change only through **Update with Current Settings**. **New Preset from Current Settings** saves the live settings as a new one.
 - Storage: `presets` (JSON array) in the app's defaults, plus `activePresetID` (the last preset used; only a tie-breaker). The individual keys (`inputUID`, `strength`, …) are the live settings, exactly as before presets. No presets saved (upgrade or new install) just means Manual.
 - Using a preset restarts the pipeline only if the mic or channel differs.
+- Settings → About (last in the sidebar): the app icon, name and version, a one-sentence description, and a link to https://hush.erikreagan.com.
 - Settings → Presets (second in the sidebar): each row shows the name, mic · strength · engine, "Mic not connected" when relevant, and either "Active" or a **Use** button, plus a ⋯ menu (Update with Current Settings, Rename…, Duplicate, Delete). Below the list: New Preset from Current Settings. Rows drag to reorder. Then the "Switch presets when a microphone disconnects" switch (default on). The Audio pane has a Preset menu beside its title; the sidebar status card names the preset in use or says Manual.
 - A preset whose mic isn't connected can be used from Settings (Hush then waits for the mic, as it always has) but not from the popover.
 - Automatic switching, one direction only: see Edge cases (§13). List order is the fallback order.
