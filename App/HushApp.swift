@@ -396,7 +396,7 @@ struct SettingsView: View {
                 detail
             }
         }
-        .frame(width: 760, height: 680)
+        .frame(width: 760, height: 740)
     }
 
     @ViewBuilder private var detail: some View {
@@ -431,12 +431,16 @@ struct SettingsView: View {
                     SliderRow(title: "Output trim", caption: "Final volume sent to apps", value: $model.outputGainDB, range: -12...12, step: 0.5) { String(format: "%+.1f dB", $0) }
                 }
                 Section {
+                    Toggle("Listen", isOn: $model.listening).disabled(model.error != nil)
                     Picker("Play to", selection: $model.monitorUID) {
                         Text("Current Mac output").tag("")
                         ForEach(model.outputDevices) { Text($0.name).tag($0.uid) }
                     }
                 } header: { Text("Listen") } footer: {
-                    Text("Listen plays what apps hear, slightly delayed. Use headphones: through speakers the mic picks it up and it feeds back.")
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let problem = model.monitorError { Text(problem).foregroundStyle(.red) }
+                        Text("Listen plays what apps hear, slightly delayed. Use headphones: through speakers the mic picks it up and it feeds back.")
+                    }
                 }
             case .shortcuts:
                 Section {

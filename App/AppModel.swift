@@ -299,8 +299,8 @@ final class AppModel {
             try pipeline.startMonitor(output: device)
             monitorName = Devices.name(of: device)
         } catch {
+            listening = false   // first: turning Listen off re-enters this function, which clears monitorError
             monitorError = "Couldn't play to the Listen output"
-            listening = false
         }
     }
 

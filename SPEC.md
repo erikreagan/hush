@@ -212,7 +212,7 @@ Below the Mute and Compare tiles is a full-width **Listen** tile: it plays what 
 `build/Hush.app/Contents/MacOS/Hush --snapshot out.png` renders the popover in several states, light and dark, to an image without starting audio or touching settings — use it to review UI changes.
 
 **Settings window:**
-Built: Input, Processing (engine choice Apple · DeepFilterNet, hidden if DeepFilterNet failed to load; high-pass + output trim), System, Stream Deck (port, client count), and Diagnostics (delay, drift, under/overruns, engine parameter dump, and the 30-second test recorder with "Show Last Test in Finder"). Also built: Listen (output picker) and Shortcuts (three recorders). Not built: the DFN options, per-engine custom strength, and CPU %.
+Built: Input, Processing (engine choice Apple · DeepFilterNet, hidden if DeepFilterNet failed to load; high-pass + output trim), System, Stream Deck (port, client count), and Diagnostics (delay, drift, under/overruns, engine parameter dump, and the 30-second test recorder with "Show Last Test in Finder"). Also built: Listen (on/off toggle + output picker) and Shortcuts (three recorders). Not built: the DFN options, per-engine custom strength, and CPU %.
 
 - *Input:* device picker (default: Audient iD2), channel picker (default: 1), input gain trim
 - *Processing:* HPF on/off + frequency slider; per-engine custom strength; DFN low-latency model toggle; DFN post-filter beta
