@@ -10,6 +10,12 @@ let barColor = hex(0x13224B)
 let barHeights: [CGFloat] = [80, 180, 320, 130, 240, 110]   // left to right
 let barWidth: CGFloat = 40, barPitch: CGFloat = 64
 let scale: CGFloat = 1024 / 824
+// Small sizes (<= 32 px) use fewer, thicker bars snapped to whole pixels, or the six bars blur together.
+// Per pixel size: disc radius as a fraction of the size, bar width and gap in pixels, bar heights in pixels (even, so edges stay on the grid).
+let smallGlyph: [Int: (disc: CGFloat, width: Int, gap: Int, heights: [Int])] = [
+    16: (0.40, 2, 2, [4, 10, 6]),
+    32: (0.40, 3, 2, [8, 20, 12, 16]),
+]
 
 func render(_ px: Int) -> Data {
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: px, pixelsHigh: px, bitsPerSample: 8,
@@ -17,6 +23,19 @@ func render(_ px: Int) -> Data {
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
     NSGradient(starting: top, ending: bottom)!.draw(in: NSRect(x: 0, y: 0, width: CGFloat(px), height: CGFloat(px)), angle: -90)
+    if let g = smallGlyph[px] {
+        let c = CGFloat(px) / 2, r = g.disc * CGFloat(px)
+        discColor.setFill()
+        NSBezierPath(ovalIn: NSRect(x: c - r, y: c - r, width: 2 * r, height: 2 * r)).fill()
+        barColor.setFill()
+        let x0 = (px - (g.heights.count * g.width + (g.heights.count - 1) * g.gap)) / 2
+        for (i, h) in g.heights.enumerated() {
+            let b = NSRect(x: x0 + i * (g.width + g.gap), y: (px - h) / 2, width: g.width, height: h)
+            NSBezierPath(roundedRect: b, xRadius: CGFloat(g.width) / 2, yRadius: CGFloat(g.width) / 2).fill()
+        }
+        NSGraphicsContext.restoreGraphicsState()
+        return rep.representation(using: .png, properties: [:])!
+    }
     let t = NSAffineTransform(); t.translateX(by: CGFloat(px) / 2, yBy: CGFloat(px) / 2)
     t.scale(by: CGFloat(px) / 1024 * scale); t.concat()   // origin is now the tile centre
     discColor.setFill()
