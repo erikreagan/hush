@@ -1,6 +1,6 @@
 {
 	"Name": "Hush",
-	"Version": "0.1.0.0",
+	"Version": "0.1.1.0",
 	"Author": "Erik Reagan",
 	"Description": "Controls the Hush mic noise-removal app: toggle, strength, mute, and a live level meter.",
 	"Category": "Hush",

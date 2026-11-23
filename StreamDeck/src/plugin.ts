@@ -7,7 +7,7 @@ import streamDeck, {
 } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 
-import { BLUE, DARK, DIM, LABEL, OFFLINE, RED, STRENGTHS, WHITE, fraction, meterFace, mic, muteFace, noiseFace, strengthFace, svg, waveform, type HushState, type Strength } from "./faces";
+import { LABEL, OFFLINE, STRENGTHS, dialIcon, fraction, meterFace, muteFace, noiseFace, strengthFace, type HushState, type Strength } from "./faces";
 
 /** One auto-reconnecting connection to Hush. `state` is null while Hush isn't running. */
 const hush = {
@@ -130,7 +130,7 @@ class HushDial extends SingletonAction {
                     title: state.muted ? "Hush · Muted" : state.enabled ? "Hush" : "Hush · Off",
                     value: `${LABEL[state.strength]} · ${state.engine === "apple" ? "Apple" : "DeepFilterNet"}`,
                     indicator: { value: Math.round(100 * fraction(hush.meter.rms)), opacity: state.muted ? 0.3 : 1 },
-                    icon: state.muted ? svg(RED, mic(WHITE, true)) : state.enabled ? svg(BLUE, waveform(WHITE, true)) : svg(DARK, waveform(DIM, false)),
+                    icon: dialIcon(state),
                 }
                 : { title: "Hush", value: "Offline", indicator: { value: 0 }, icon: OFFLINE });
         }
