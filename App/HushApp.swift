@@ -1,3 +1,4 @@
+import HushAudio
 import SwiftUI
 
 @main
@@ -46,29 +47,16 @@ struct Popover: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Strength").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                // Custom segments: the system segmented control won't stretch to the panel width.
-                HStack(spacing: 2) {
-                    ForEach(Strength.allCases) { preset in
-                        let selected = model.strength == preset
-                        Button { model.strength = preset } label: {
-                            Text(preset.label)
-                                .font(.callout.weight(selected ? .semibold : .regular))
-                                .foregroundStyle(selected ? .white : .primary)
-                                .frame(maxWidth: .infinity).padding(.vertical, 5)
-                                .background(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 8, style: .continuous))
-                                .contentShape(.rect)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(selected ? .isSelected : [])
-                    }
+                Segments(title: "Strength", options: Strength.allCases, label: \.label, selection: $model.strength)
+            }
+            .opacity(model.enabled ? 1 : 0.4).disabled(!model.enabled)
+
+            if model.deepFilterAvailable {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Engine").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Segments(title: "Engine", options: EngineID.allCases, label: \.label, selection: $model.engine)
                 }
-                .padding(2)
-                .background(.primary.opacity(0.06), in: .rect(cornerRadius: 10, style: .continuous))
-                .animation(.easeOut(duration: 0.15), value: model.strength)
-                .opacity(model.enabled ? 1 : 0.4)
-                .disabled(!model.enabled)
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel("Strength")
+                .opacity(model.enabled ? 1 : 0.4).disabled(!model.enabled)
             }
 
             HStack(spacing: 8) {
@@ -128,6 +116,41 @@ struct Popover: View {
         }
         .padding(16)
         .frame(width: 300)
+    }
+}
+
+extension Strength { var label: String { rawValue.capitalized } }
+extension EngineID { var label: String { self == .apple ? "Apple" : "DeepFilterNet" } }
+
+/// Full-width segmented choice. Custom because the system segmented control won't stretch to the panel
+/// width; the selected segment is filled with the accent colour.
+struct Segments<Option: Hashable & Identifiable>: View {
+    let title: String
+    let options: [Option]
+    let label: KeyPath<Option, String>
+    @Binding var selection: Option
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(options) { option in
+                let selected = selection == option
+                Button { selection = option } label: {
+                    Text(option[keyPath: label])
+                        .font(.callout.weight(selected ? .semibold : .regular))
+                        .foregroundStyle(selected ? .white : .primary)
+                        .frame(maxWidth: .infinity).padding(.vertical, 5)
+                        .background(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 8, style: .continuous))
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+        .padding(2)
+        .background(.primary.opacity(0.06), in: .rect(cornerRadius: 10, style: .continuous))
+        .animation(.easeOut(duration: 0.15), value: selection)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
     }
 }
 

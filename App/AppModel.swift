@@ -6,14 +6,6 @@ import Observation
 import ServiceManagement
 import UserNotifications
 
-enum Strength: String, CaseIterable, Identifiable {
-    case light, medium, max
-    var id: Self { self }
-    var label: String { rawValue.capitalized }
-    /// AUSoundIsolation wet/dry mix. Starting values from the spec — tune by ear.
-    var wetDryPercent: Float { [.light: 60, .medium: 85, .max: 100][self]! }
-}
-
 /// The one place state changes. The UI calls these today; hotkeys and the Stream Deck socket will later.
 @MainActor @Observable
 final class AppModel {
@@ -57,7 +49,9 @@ final class AppModel {
     var testResult: String?
     var testFiles: [URL] = []
     var muted = false { didSet { pipeline.muted = muted } }
-    var strength: Strength { didSet { defaults.set(strength.rawValue, forKey: "strength"); rampWetDry() } }
+    var strength: Strength { didSet { defaults.set(strength.rawValue, forKey: "strength"); applyStrength() } }
+    var engine: EngineID { didSet { defaults.set(engine.rawValue, forKey: "engine"); pipeline.engineID = engine } }
+    var deepFilterAvailable = true
 
     var error: String?
     var driverInstalled = false
@@ -101,7 +95,9 @@ final class AppModel {
         restoreDefaultOnQuit = defaults.object(forKey: "restoreDefaultOnQuit") as? Bool ?? true
         port = defaults.object(forKey: "port") as? Int ?? 47823
         launchAtLogin = SMAppService.mainApp.status == .enabled
+        engine = EngineID(rawValue: defaults.string(forKey: "engine") ?? "") ?? .apple
         pipeline.enabled = enabled
+        pipeline.engineID = engine
         wetDry = strength.wetDryPercent
         applyProcessing()
 
@@ -169,8 +165,14 @@ final class AppModel {
         do {
             try pipeline.start(input: device.id, channel: min(channel, device.inputChannels - 1), output: feed)
             pipeline.engine?.setWetDry(percent: wetDry)
-            engineNote = pipeline.engineError.map { "Noise engine unavailable (\($0)) — passing raw mic through" }
-            engineInfo = pipeline.engine.map { "Reported latency: \($0.latencyFrames) frames\n\($0.parameterDump)" } ?? ""
+            pipeline.deepFilter?.setAttenuation(dB: strength.attenuationDB)
+            deepFilterAvailable = pipeline.deepFilter != nil
+            engineNote = pipeline.engineError.map { "Apple engine unavailable (\($0))" }
+                ?? pipeline.deepFilterError.map { "DeepFilterNet unavailable (\($0))" }
+            engineInfo = [
+                pipeline.engine.map { "Apple: \($0.latencyFrames) frames latency\n\($0.parameterDump)" },
+                pipeline.deepFilter.map { "DeepFilterNet 3: \($0.latencyFrames) frames latency" },
+            ].compactMap { $0 }.joined(separator: "\n")
             error = nil
             claimDefaultInput()
         } catch {
@@ -236,7 +238,9 @@ final class AppModel {
             let all = Strength.allCases
             strength = all[(all.firstIndex(of: strength)! + 1) % all.count]
         case "setEngine":
-            guard value as? String == "apple" else { return "Only the apple engine is available so far" }
+            guard let choice = (value as? String).flatMap(EngineID.init) else { return "setEngine needs apple or deepFilter" }
+            guard choice == .apple || deepFilterAvailable else { return "DeepFilterNet isn't available" }
+            engine = choice
         case "recordTest":   // not in the spec's list: lets tests and tools trigger the test recorder
             recordTest(seconds: value as? Double ?? 30)
         default: return "Unknown action \(action)"
@@ -247,7 +251,7 @@ final class AppModel {
 
     private func publishState() {
         server.publish(topic: "state", [
-            "enabled": enabled, "muted": muted, "strength": strength.rawValue, "engine": "apple",
+            "enabled": enabled, "muted": muted, "strength": strength.rawValue, "engine": engine.rawValue,
             "inputConnected": error == nil, "driverInstalled": driverInstalled,
         ], onlyIfChanged: true)
     }
@@ -279,8 +283,9 @@ final class AppModel {
         if let mic = Devices.device(uid: Devices.micUID) { Devices.defaultInput = mic }
     }
 
-    /// Parameter ramp, not a jump: 10 small steps over ~100 ms.
-    private func rampWetDry() {
+    /// Parameter ramp, not a jump: small steps over ~100 ms. (DeepFilterNet smooths its own limit per frame.)
+    private func applyStrength() {
+        pipeline.deepFilter?.setAttenuation(dB: strength.attenuationDB)
         rampTask?.cancel()
         let target = strength.wetDryPercent
         rampTask = Task {

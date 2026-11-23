@@ -70,3 +70,22 @@ import Testing
     print("Noise reduction on white noise: \(reductionDB) dB")
     #expect(reductionDB > 12)
 }
+
+/// DeepFilterNet loads its model, accepts odd buffer sizes, and removes noise.
+@Test func deepFilterAttenuatesNoise() throws {
+    let engine = try DeepFilterEngine()
+    var inEnergy = 0.0, outEnergy = 0.0
+    for block in 0..<600 {
+        let n = [256, 100, 480, 37][block % 4]   // exercises the re-blocking to 480-sample frames
+        var input = [Float](repeating: 0, count: n), output = [Float](repeating: 0, count: n)
+        for i in 0..<n { input[i] = Float.random(in: -0.1...0.1) }
+        engine.process(&input, &output, frames: n)
+        if block > 200 {
+            inEnergy += input.reduce(0) { $0 + Double($1 * $1) }
+            outEnergy += output.reduce(0) { $0 + Double($1 * $1) }
+        }
+    }
+    let reductionDB = 10 * log10(inEnergy / max(outEnergy, 1e-12))
+    print("DeepFilterNet reduction on white noise: \(reductionDB) dB, latency \(engine.latencyFrames) frames")
+    #expect(reductionDB > 12)
+}

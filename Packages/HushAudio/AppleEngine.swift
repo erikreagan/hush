@@ -11,7 +11,6 @@ func monoOrStereoFloat(_ sampleRate: Double, channels: UInt32) -> AudioStreamBas
 
 /// Apple's on-device voice isolation (AUSoundIsolation), run inside our own chain.
 /// Independent of the system "Mic Mode" setting. Mono, 48 kHz.
-// ponytail: no NoiseEngine protocol yet — one engine. Extract it when DeepFilterNet lands (M4).
 public final class AppleEngine: @unchecked Sendable {
     private let unit: AudioUnit
     private var input: UnsafePointer<Float>?
@@ -59,7 +58,7 @@ public final class AppleEngine: @unchecked Sendable {
     }
 
     /// Real-time safe. `input` and `output` must not overlap.
-    func process(_ input: UnsafePointer<Float>, _ output: UnsafeMutablePointer<Float>, frames: Int) {
+    public func process(_ input: UnsafePointer<Float>, _ output: UnsafeMutablePointer<Float>, frames: Int) {
         self.input = input
         var timestamp = AudioTimeStamp()
         timestamp.mSampleTime = sampleTime

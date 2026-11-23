@@ -41,7 +41,7 @@ I control it from the menu bar and from an Elgato Stream Deck (toggle, strength 
 | App | Swift 6, SwiftUI `MenuBarExtra` (`.window` style), no Dock icon (`LSUIElement = YES`) |
 | Project format | One Swift package at the repo root (no Xcode project). `scripts/build-app.sh` runs `swift build` and assembles + signs `build/Hush.app`. The package opens in Xcode for editing and debugging. The script also stamps the binary with the real SDK version (`vtool`): SwiftPM labels it as built for macOS 15, which makes macOS draw the app in its legacy look |
 | Audio | Core Audio (AUHAL) for capture/render; AudioToolbox for AUSoundIsolation |
-| DeepFilterNet | Rust `libDF` built as a static library with a C ABI, linked into the app (see §6.3). Rust is not yet installed on the build Mac |
+| DeepFilterNet | Rust `libDF` built as a static library with a C ABI, linked into the app (see §6.3). Rust is installed via rustup in the home folder (`~/.cargo`) |
 | Driver | BlackHole (upstream submodule), compiled by script with `clang` and preprocessor definitions |
 | Stream Deck plugin | Official `@elgato/streamdeck` Node SDK v2 (TypeScript), Node 24, Stream Deck app 7.1+. Target hardware: Stream Deck + |
 | IPC (app ↔ plugin) | Local WebSocket server inside Hush, bound to `127.0.0.1` only |
@@ -131,7 +131,7 @@ The app detects whether the driver is installed and shows a clear "Driver not in
 
 ### 6.1 Common protocol
 
-Not extracted yet: with only the Apple engine built, the pipeline uses `AppleEngine` directly. Introduce this protocol in M4, when DeepFilterNet becomes the second implementation.
+As built, the shared protocol is smaller than the sketch below: `NoiseEngine` has just `latencyFrames` and `process(...)`. Strength is set through each engine's own method (`setWetDry(percent:)`, `setAttenuation(dB:)`), with the preset-to-value mapping in one `Strength` enum shared by the app and `hush-cli`. The original sketch:
 
 ```swift
 protocol NoiseEngine: AnyObject {
@@ -162,15 +162,27 @@ Engines must handle arbitrary host buffer sizes (internally re-block to their na
 
 ### 6.3 DeepFilterNet engine
 
-- Vendor DeepFilterNet as a git submodule. Build `libDF` as a static lib (`aarch64-apple-darwin`) exposing a C API. The repo is expected to have a C-API feature (functions roughly like create / process-frame / set-attenuation-limit / free) — **verify; if absent, write a thin Rust FFI crate wrapping the real-time `DfTract` runtime.**
-- Bundle the DFN3 model archive in app Resources. Optionally bundle the no-lookahead model as a "Low latency" toggle.
-- Native format: 48 kHz mono, 480-sample frames.
-- Strength mapping (attenuation limit, dB):
-  - Light → 12 dB
-  - Medium → 24 dB
-  - Max → 100 dB (effectively unlimited)
-- Expose post-filter beta in Advanced settings (default per upstream).
-- Build integrated into Xcode via a Run Script phase (`cargo build --release`) or a prebuilt `.xcframework` produced by `scripts/build-dfn.sh`.
+As built:
+
+- DeepFilterNet is a git submodule at `Engines/deepfilter/DeepFilterNet` (unmodified). Its `libDF` crate already has a C API (`capi` feature: `df_create`, `df_process_frame`, `df_set_atten_lim`, `df_set_post_filter_beta`, `df_free`), so no FFI crate was needed.
+- `scripts/build-dfn.sh` builds `libdf.a` with cargo and stages it and the DFN3 model in `build/dfn/`. **It must run once before `swift build`**, because the Swift package links `build/dfn/libdf.a` (`build-app.sh` runs it automatically if the library is missing).
+- **AMX patch:** libDF's inference library (tract-linalg 0.21.4) assumes every Mac supports Apple's undocumented AMX instructions. M4-and-later chips don't, and the engine crashes with an illegal instruction (seen on this M6). The build script compiles against a copy of that crate with AMX switched off. Nothing in the submodule is edited.
+- The DFN3 model (`DeepFilterNet3_onnx.tar.gz`) is bundled in the app's Resources; tests and `hush-cli` load it straight from the submodule.
+- Native format: 48 kHz mono, 480-sample frames; the engine re-blocks any host buffer size.
+- **Latency: 1920 frames (40 ms)**, measured by cross-correlating input and output — 16 ms less than the Apple engine's 2705 frames (56 ms).
+- Speed: about 25× real time on one core offline (roughly 4% of a core), versus about 85× for the Apple engine.
+- Strength mapping (attenuation limit, dB): Light → 12, Medium → 24, Max → 100 (effectively unlimited).
+- Inference may allocate on the audio thread (not strictly real-time safe). Watch the dropout counters in a soak; if needed, move inference to a worker thread.
+- Not built: the no-lookahead "Low latency" model toggle, and the post-filter beta setting.
+
+**First comparison** (Erik's 2026-11-23 recording run through `hush-cli`; levels in typing-only stretches, raw ≈ −42 dBFS):
+
+| | Light | Medium | Max |
+|---|---|---|---|
+| Apple | −50 | −59 | −89 to −95 |
+| DeepFilterNet | −54 | −64 | −65 to −80 |
+
+Apple's Medium leaves typing audible simply because it blends 15% of the raw mic back in. On Max, Apple removes typing more completely than DeepFilterNet by measurement. Which one sounds better on the voice is a listening question — the files are in `~/Music/Hush Tests/Engine comparison/`.
 
 ### 6.4 Bypass
 
@@ -195,7 +207,7 @@ Pass-through (with HPF and gain still applied). Not a separate engine in the UI 
 6. Warning banners, only when relevant: noise engine unavailable; Hush Mic isn't the default input (with a "Make Default" button). There is no always-on "default input ✓" line.
 7. Menu-style rows with hover highlights: Record 30-Second Test (then "Show Last Test in Finder"), Settings… (⌘,), Quit Hush (⌘Q).
 
-Still to add to the popover: the engine switch **Apple · DeepFilterNet** (M4), the **Listen** toggle, and a hotkey hint on Mute. The delay / drift / dropouts readout lives in Settings → Diagnostics, not the popover.
+The popover also has an **Engine** row (Apple · DeepFilterNet) under Strength, hidden if DeepFilterNet failed to load. Still to add: the **Listen** toggle and a hotkey hint on Mute. The delay / drift / dropouts readout lives in Settings → Diagnostics, not the popover.
 
 `build/Hush.app/Contents/MacOS/Hush --snapshot out.png` renders the popover in several states, light and dark, to an image without starting audio or touching settings — use it to review UI changes.
 
@@ -279,16 +291,18 @@ hush/
 ├── Packages/HushAudio/       # Audio library: devices, pipeline, ring buffer + resampler, Apple engine
 ├── Tests/                    # Unit tests (ring buffer, drift resampler, Apple engine)
 ├── Driver/blackhole/         # BlackHole upstream (submodule, unmodified)
-├── scripts/                  # build-driver, install-driver, uninstall-driver, build-app, make-signing-cert
+├── scripts/                  # build-driver, install-driver, uninstall-driver, build-dfn, build-app, make-signing-cert, test-control.mjs, mic-in-use.swift
 ├── build/                    # Build output (git-ignored): Hush.app, driver/Hush.driver
 │
+├── Engines/deepfilter/DeepFilterNet/   # DeepFilterNet upstream (submodule, unmodified)
+├── Packages/CDeepFilter/     # C header for libDF, so Swift can call it
+├── Tools/hush-cli/           # Offline WAV processor for engine A/B testing
+│
 │   Planned, not created yet:
-├── Engines/deepfilter/       # DeepFilterNet submodule + FFI crate + build script (M4)
-├── StreamDeck/com.erikreagan.hush.sdPlugin/  # TS plugin (M6)
-└── Tools/hush-cli/           # Offline WAV processor for engine A/B testing (M4)
+└── StreamDeck/com.erikreagan.hush.sdPlugin/  # TS plugin (M6)
 ```
 
-**`hush-cli`:** `hush-cli process --engine apple|deepFilter --strength medium in.wav out.wav`. Uses the exact same engine code as the app. Used to compare engines on recorded samples and for automated regression tests.
+**`hush-cli`:** `hush-cli process --engine apple|deepFilter --strength medium in.wav out.wav`. Uses the exact same engine code as the app. Used to compare engines on recorded samples and for automated regression tests. Built (`swift build --product hush-cli`); input must be 48 kHz mono, which is what the test recorder writes.
 
 ---
 
@@ -296,7 +310,7 @@ hush/
 
 Build in this order. Each milestone should be demoable before moving on.
 
-**Status (2026-11-23):** Driver installed; the Audient iD2 has arrived and is the selected mic (48 kHz). M1, M2, and M5 are built; M3 is mostly built. Erik's at-the-Mac checks all passed: Compare, Mute, unplug/replug, and the Settings window. Listening result with the Apple engine: **Medium leaves typing clearly audible; Max removes it almost entirely but the voice sounds less natural — still acceptable for meetings.** Max is the working default for now, and this gap is the case for DeepFilterNet (M4). Measured on the Lewitt CONNECT 2 (44.1 kHz) before the iD2 arrived: ~76 ms added delay, room noise floor −56 → −72 dBFS on Medium, and a passed 30-minute soak (`node scripts/test-control.mjs 1800`): zero underruns and overruns, ~1% CPU, 38 MB memory, quiet room. **The soak has not been repeated on the iD2.** M4, M6, M7 not started.
+**Status (2026-11-23):** Driver installed; the Audient iD2 has arrived and is the selected mic (48 kHz). M1, M2, and M5 are built; M3 is mostly built. Erik's at-the-Mac checks all passed: Compare, Mute, unplug/replug, and the Settings window. Listening result with the Apple engine: **Medium leaves typing clearly audible; Max removes it almost entirely but the voice sounds less natural — still acceptable for meetings.** Max is the working default for now, and this gap is the case for DeepFilterNet (M4). Measured on the Lewitt CONNECT 2 (44.1 kHz) before the iD2 arrived: ~76 ms added delay, room noise floor −56 → −72 dBFS on Medium, and a passed 30-minute soak (`node scripts/test-control.mjs 1800`): zero underruns and overruns, ~1% CPU, 38 MB memory, quiet room. **The soak has not been repeated on the iD2.** M4 (DeepFilterNet) is built and tested offline but not yet run live (see below). M6, M7 not started.
 
 **M1 — Passthrough plumbing** *(built; acceptance pending)*
 - Driver builds and installs; "Hush Mic" appears in System Settings → Sound → Input.
@@ -315,10 +329,10 @@ Build in this order. Each milestone should be demoable before moving on.
 - Not built: global hotkeys, Listen (self-monitoring), CPU % in Diagnostics, per-engine custom strength, handling a mid-session sample-rate change on the mic.
 - ✅ Unplug and replug the mic mid-call → audio resumes on its own, with a notification on unplug.
 
-**M4 — DeepFilterNet engine**
-- libDF builds and links; engine selectable; crossfade on switch.
-- `hush-cli` processes WAVs with both engines.
-- ✅ Typing and mouse clicks are audibly reduced versus the Apple engine on the same test clip; CPU and latency within targets.
+**M4 — DeepFilterNet engine** *(built; live switching and listening pending)*
+- libDF builds and links; unit test passes (noise reduction, odd buffer sizes); `hush-cli` processes WAVs with both engines.
+- Engine selectable from the popover and the socket (`setEngine`). Switching runs the incoming engine alongside for a 300 ms warm-up, then a 50 ms crossfade; only the selected engine runs otherwise. **Not yet exercised in the running app.**
+- ✅ Typing and mouse clicks are audibly reduced versus the Apple engine on the same test clip; CPU and latency within targets. *(Open: by measurement Apple's Max removes typing more completely — see §6.3. Latency is within target at 40 ms.)*
 
 **M5 — Control surface API** *(built and verified)*
 - `node scripts/test-control.mjs [watchSeconds]` exercises every command against the running app, restores state, and optionally watches meter + stats (this doubles as the soak test).

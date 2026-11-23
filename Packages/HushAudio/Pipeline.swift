@@ -54,6 +54,14 @@ public final class Pipeline: @unchecked Sendable {
 
     public private(set) var engine: AppleEngine?
     public private(set) var engineError: String?
+    public private(set) var deepFilter: DeepFilterEngine?
+    public private(set) var deepFilterError: String?
+    private let selectedEngine = Atomic<Int>(0)   // 0 = Apple, 1 = DeepFilterNet
+    /// Which engine apps hear. Switching warms the incoming engine up, then crossfades (no click).
+    public var engineID: EngineID {
+        get { selectedEngine.load(ordering: .relaxed) == 1 ? .deepFilter : .apple }
+        set { selectedEngine.store(newValue == .deepFilter ? 1 : 0, ordering: .relaxed) }
+    }
     public private(set) var resampler: DriftResampler?
     public private(set) var isRunning = false
     private var ioLatencyFrames = 0
@@ -61,7 +69,8 @@ public final class Pipeline: @unchecked Sendable {
     /// Estimated mic-to-app delay added by Hush, in milliseconds.
     public var latencyMs: Double {
         guard let resampler else { return 0 }
-        return 1000 * (resampler.fillSeconds + Double(ioLatencyFrames + (engine?.latencyFrames ?? 0)) / Self.sampleRate)
+        let active: NoiseEngine? = engineID == .deepFilter ? (deepFilter ?? engine) : (engine ?? deepFilter)
+        return 1000 * (resampler.fillSeconds + Double(ioLatencyFrames + (active?.latencyFrames ?? 0)) / Self.sampleRate)
     }
 
     private var inputUnit: AudioUnit?
@@ -71,6 +80,10 @@ public final class Pipeline: @unchecked Sendable {
     private var channel = 0
     private let dry = UnsafeMutablePointer<Float>.allocate(capacity: maxFrames)
     private let wet = UnsafeMutablePointer<Float>.allocate(capacity: maxFrames)
+    private let wet2 = UnsafeMutablePointer<Float>.allocate(capacity: maxFrames)
+    private var engineMix: Float = 0      // 0 = Apple, 1 = DeepFilterNet
+    private var engineTarget: Float = 0
+    private var warmup = 0                // frames the incoming engine still runs before the crossfade starts
     // Audio-thread state.
     private var mix: Float = 1    // 0 = raw, 1 = engine
     private var gain: Float = 1
@@ -92,6 +105,7 @@ public final class Pipeline: @unchecked Sendable {
         stop()
         dry.deallocate()
         wet.deallocate()
+        wet2.deallocate()
     }
 
     /// Starts (or restarts) the chain. `channel` is zero-based.
@@ -115,6 +129,13 @@ public final class Pipeline: @unchecked Sendable {
                 do { engine = try AppleEngine(sampleRate: Self.sampleRate, maxFrames: Self.maxFrames); engineError = nil }
                 catch { engineError = "\(error)" }  // chain still runs as passthrough
             }
+            if deepFilter == nil {
+                do { deepFilter = try DeepFilterEngine(); deepFilterError = nil }
+                catch { deepFilterError = "\(error)" }
+            }
+            engineTarget = Self.engineTarget(selected: selectedEngine.load(ordering: .relaxed), apple: engine, deepFilter: deepFilter)
+            engineMix = engineTarget   // start on the chosen engine, no crossfade
+            warmup = 0
 
             let inUnit = try Self.makeHAL(device: input, isInput: true)
             inputUnit = inUnit
@@ -202,6 +223,10 @@ public final class Pipeline: @unchecked Sendable {
         return urls
     }
 
+    private static func engineTarget(selected: Int, apple: AppleEngine?, deepFilter: DeepFilterEngine?) -> Float {
+        (selected == 1 && deepFilter != nil) || apple == nil ? 1 : 0
+    }
+
     /// Plain AUHAL — deliberately NOT the Voice Processing I/O unit (that triggers Mic Modes and ducking).
     private static func makeHAL(device: AudioDeviceID, isInput: Bool) throws -> AudioUnit {
         var desc = AudioComponentDescription(
@@ -274,12 +299,34 @@ public final class Pipeline: @unchecked Sendable {
             dry[i] = Float(x + Double(highPassMix) * (y - x))
         }
 
-        if let engine {
-            // ponytail: the engine keeps running while bypassed so toggling is instant and click-free.
+        if engine == nil && deepFilter == nil {
+            memcpy(wet, dry, n * 4)   // fail open: raw mic
+        } else {
+            // Engine selection. Only the selected engine runs, except during a switch: the incoming one
+            // runs alongside for a 300 ms warm-up, then a 50 ms equal-power crossfade.
+            let wanted = Self.engineTarget(selected: selectedEngine.load(ordering: .relaxed), apple: engine, deepFilter: deepFilter)
+            if wanted != engineTarget { engineTarget = wanted; warmup = Int(0.3 * Self.sampleRate) }
+            if engineMix < 1 || engineTarget == 0 {
+                if let engine { engine.process(dry, wet, frames: n) } else { memcpy(wet, dry, n * 4) }
+            }
+            if engineMix > 0 || engineTarget == 1, let deepFilter { deepFilter.process(dry, wet2, frames: n) }
+            let step = 1 / Float(0.05 * Self.sampleRate)
+            if warmup > 0 { warmup -= n }
+            for i in 0..<n {
+                if warmup <= 0, engineMix != engineTarget {
+                    engineMix = engineTarget > engineMix ? min(1, engineMix + step) : max(0, engineMix - step)
+                }
+                if engineMix >= 1 {
+                    wet[i] = wet2[i]
+                } else if engineMix > 0 {
+                    let angle = engineMix * .pi / 2
+                    wet[i] = wet[i] * cos(angle) + wet2[i] * sin(angle)
+                }
+            }
+
+            // Bypass. ponytail: the engine keeps running while bypassed so toggling is instant and click-free.
             // Costs idle CPU; skip processing once mix has settled at 0 if that ever matters.
-            engine.process(dry, wet, frames: n)
             let target: Float = enabledFlag.load(ordering: .relaxed) ? 1 : 0
-            let step = 1 / Float(0.05 * Self.sampleRate)   // 50 ms equal-power crossfade
             for i in 0..<n {
                 if mix != target { mix = target > mix ? min(target, mix + step) : max(target, mix - step) }
                 if mix <= 0 {
@@ -289,8 +336,6 @@ public final class Pipeline: @unchecked Sendable {
                     wet[i] = dry[i] * cos(angle) + wet[i] * sin(angle)
                 }
             }
-        } else {
-            memcpy(wet, dry, n * 4)
         }
 
         let gainTarget: Float = mutedFlag.load(ordering: .relaxed) ? 0 : Float(bitPattern: outputGainBits.load(ordering: .relaxed))
