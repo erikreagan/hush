@@ -207,12 +207,12 @@ Pass-through (with HPF and gain still applied). Not a separate engine in the UI 
 6. Warning banners, only when relevant: noise engine unavailable; Hush Mic isn't the default input (with a "Make Default" button). There is no always-on "default input ✓" line.
 7. Menu-style rows with hover highlights: Settings… (⌘,), Quit Hush (⌘Q).
 
-Below the Mute and Compare tiles is a full-width **Listen** tile: it plays what apps hear (after engine, gain, and mute) to the output chosen in Settings → Listen (default: the Mac's current output), through a third audio unit with its own drift correction. It is never restored on launch, and it adds a little delay on top of Hush's own, so the voice comes back as a short echo. Built 2026-11-23; **not yet heard by anyone.** The Mute tile shows its shortcut when one is assigned. The delay / drift / dropouts readout lives in Settings → Diagnostics, not the popover.
+Below the Mute and Compare tiles is a full-width **Listen** tile: it plays what apps hear (after engine, gain, and mute) to the output chosen in Settings → Advanced → Listen (default: the Mac's current output), through a third audio unit with its own drift correction. It is never restored on launch, and it adds a little delay on top of Hush's own, so the voice comes back as a short echo. Built 2026-11-23; **not yet heard by anyone.** The Mute tile shows its shortcut when one is assigned. The delay / drift / dropouts readout lives in Settings → Diagnostics, not the popover.
 
 `build/Hush.app/Contents/MacOS/Hush --snapshot out.png` renders the popover in several states, light and dark, to an image without starting audio or touching settings — use it to review UI changes.
 
 **Settings window:**
-Built: Input, Processing (engine choice Apple · DeepFilterNet, hidden if DeepFilterNet failed to load; high-pass + output trim), System, Stream Deck (port, client count), and Diagnostics (delay, drift, under/overruns, engine parameter dump, and the 30-second test recorder with "Show Last Test in Finder"). Also built: Listen (output picker) and Shortcuts (three recorders). Not built: the DFN options, per-engine custom strength, and CPU %.
+Built: Input, Processing (engine choice Apple · DeepFilterNet, hidden if DeepFilterNet failed to load; high-pass + output trim), System, Stream Deck (port, client count), and Diagnostics (delay, drift, under/overruns, engine parameter dump, and the 30-second test recorder with "Show Last Test in Finder"). Also built: Listen (on/off toggle + output picker) and Shortcuts (three recorders). Not built: the DFN options, per-engine custom strength, and CPU %.
 
 - *Input:* device picker (default: Audient iD2), channel picker (default: 1), input gain trim
 - *Processing:* HPF on/off + frequency slider; per-engine custom strength; DFN low-latency model toggle; DFN post-filter beta
