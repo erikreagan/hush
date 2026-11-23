@@ -45,6 +45,14 @@ final class AppModel {
     private var claimedDefault = false
     private var terminateSignal: DispatchSourceSignal?
 
+    /// Listen: play what apps hear to headphones. Never restored on launch — it must be a deliberate act.
+    var listening = false { didSet { if listening != oldValue { applyListening() } } }
+    /// Output for Listen; empty = whatever the Mac's current output is.
+    var monitorUID: String { didSet { defaults.set(monitorUID, forKey: "monitorUID"); if listening { applyListening() } } }
+    var outputDevices: [AudioDevice] = []
+    var monitorName = ""
+    var monitorError: String?
+
     var recordingTest = false
     var testResult: String?
     var testFiles: [URL] = []
@@ -95,6 +103,7 @@ final class AppModel {
         restoreDefaultOnQuit = defaults.object(forKey: "restoreDefaultOnQuit") as? Bool ?? true
         port = defaults.object(forKey: "port") as? Int ?? 47823
         launchAtLogin = SMAppService.mainApp.status == .enabled
+        monitorUID = defaults.string(forKey: "monitorUID") ?? ""
         engine = EngineID(rawValue: defaults.string(forKey: "engine") ?? "") ?? .apple
         pipeline.enabled = enabled
         pipeline.engineID = engine
@@ -142,6 +151,7 @@ final class AppModel {
 
     func restart() {
         devices = Devices.inputDevices()
+        outputDevices = Devices.outputDevices()
         if inputUID.isEmpty {
             // First run: prefer the Audient iD2, else the current system mic. (A saved mic that's
             // unplugged is NOT replaced — Hush goes silent and waits for it, see devicesChanged.)
@@ -182,6 +192,8 @@ final class AppModel {
 
     private func devicesChanged() {
         devices = Devices.inputDevices()
+        outputDevices = Devices.outputDevices()
+        if listening { applyListening() }   // headphones unplugged or swapped: re-open, or stop cleanly
         if error != nil {
             restart()   // something we were waiting for (mic or driver) may be back
         } else if selectedDevice == nil {
@@ -254,6 +266,21 @@ final class AppModel {
             "enabled": enabled, "muted": muted, "strength": strength.rawValue, "engine": engine.rawValue,
             "inputConnected": error == nil, "driverInstalled": driverInstalled,
         ], onlyIfChanged: true)
+    }
+
+    private func applyListening() {
+        if Self.isSnapshot { return }
+        monitorError = nil
+        guard listening else { pipeline.stopMonitor(); return }
+        let device = monitorUID.isEmpty ? Devices.defaultOutput : (Devices.device(uid: monitorUID) ?? AudioDeviceID(kAudioObjectUnknown))
+        do {
+            guard device != kAudioObjectUnknown else { throw CocoaError(.fileNoSuchFile) }
+            try pipeline.startMonitor(output: device)
+            monitorName = Devices.name(of: device)
+        } catch {
+            monitorError = "Couldn't play to the Listen output"
+            listening = false
+        }
     }
 
     private func applyProcessing() {

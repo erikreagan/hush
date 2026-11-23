@@ -99,10 +99,21 @@ public final class Pipeline: @unchecked Sendable {
     private let rawTap = RingBuffer(minimumCapacity: 96_000)
     private let processedTap = RingBuffer(minimumCapacity: 96_000)
 
+    // Listen (self-monitoring): the processed signal is copied here and played out by a third audio unit
+    // on the headphone device, with its own drift correction because that device has its own clock.
+    private let monitoring = Atomic<Bool>(false)
+    private let monitorRing = RingBuffer(minimumCapacity: 48_000)
+    private var monitorResampler: DriftResampler?
+    private var monitorUnit: AudioUnit?
+    private let monitorScratch = UnsafeMutablePointer<Float>.allocate(capacity: maxFrames)
+    public var isMonitoring: Bool { monitorUnit != nil }
+
     public init() {}
 
     deinit {
         stop()
+        stopMonitor()
+        monitorScratch.deallocate()
         dry.deallocate()
         wet.deallocate()
         wet2.deallocate()
@@ -221,6 +232,56 @@ public final class Pipeline: @unchecked Sendable {
             }
         }
         return urls
+    }
+
+    /// Plays exactly what apps hear (after engine, gain, and mute) to `output`, e.g. headphones.
+    /// Adds a little more delay on top of Hush's own, so your voice comes back as a short echo.
+    public func startMonitor(output: AudioDeviceID) throws {
+        stopMonitor()
+        do {
+            Devices.setBufferFrames(output, Self.ioFrames)
+            let frames = Devices.bufferFrames(output)
+            while monitorRing.read(into: monitorScratch, count: Self.maxFrames) > 0 {}   // discard stale audio
+            monitorResampler = DriftResampler(ring: monitorRing, inputRate: Self.sampleRate, outputRate: Self.sampleRate,
+                                              targetFill: Int(Self.ioFrames) + frames + 144)
+            let unit = try Self.makeHAL(device: output, isInput: false)
+            monitorUnit = unit
+            // 48 kHz stereo on our side; AUHAL converts to whatever rate and layout the device runs at.
+            var format = monoOrStereoFloat(Self.sampleRate, channels: 2)
+            try check(AudioUnitSetProperty(unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &format,
+                                           UInt32(MemoryLayout<AudioStreamBasicDescription>.size)), "Set monitor format")
+            var callback = AURenderCallbackStruct(inputProc: monitorCallback, inputProcRefCon: Unmanaged.passUnretained(self).toOpaque())
+            try check(AudioUnitSetProperty(unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &callback,
+                                           UInt32(MemoryLayout<AURenderCallbackStruct>.size)), "Set monitor callback")
+            try check(AudioUnitInitialize(unit), "Open monitor output")
+            try check(AudioOutputUnitStart(unit), "Start monitor output")
+            monitoring.store(true, ordering: .relaxed)
+        } catch {
+            stopMonitor()
+            throw error
+        }
+    }
+
+    public func stopMonitor() {
+        monitoring.store(false, ordering: .relaxed)
+        if let unit = monitorUnit {
+            AudioOutputUnitStop(unit)
+            AudioUnitUninitialize(unit)
+            AudioComponentInstanceDispose(unit)
+        }
+        monitorUnit = nil
+    }
+
+    fileprivate func renderMonitor(_ ioData: UnsafeMutablePointer<AudioBufferList>, frames: UInt32) -> OSStatus {
+        let buffers = UnsafeMutableAudioBufferListPointer(ioData)
+        let n = Int(frames)
+        guard let monitorResampler, n <= Self.maxFrames else {
+            for buffer in buffers { memset(buffer.mData, 0, Int(buffer.mDataByteSize)) }
+            return noErr
+        }
+        monitorResampler.read(into: monitorScratch, frames: n)
+        for buffer in buffers { memcpy(buffer.mData, monitorScratch, n * 4) }
+        return noErr
     }
 
     private static func engineTarget(selected: Int, apple: AppleEngine?, deepFilter: DeepFilterEngine?) -> Float {
@@ -354,6 +415,7 @@ public final class Pipeline: @unchecked Sendable {
         meanSquareBits.store(meanSquare.bitPattern, ordering: .relaxed)
 
         if isRecording { processedTap.write(wet, count: n) }
+        if monitoring.load(ordering: .relaxed) { monitorRing.write(wet, count: n) }
         for buffer in buffers { memcpy(buffer.mData, wet, n * 4) }   // mono → both channels
         return noErr
     }
@@ -366,4 +428,9 @@ private let captureCallback: AURenderCallback = { refCon, flags, timestamp, _, f
 private let renderCallback: AURenderCallback = { refCon, _, _, _, frames, ioData in
     guard let ioData else { return noErr }
     return Unmanaged<Pipeline>.fromOpaque(refCon).takeUnretainedValue().render(ioData, frames: frames)
+}
+
+private let monitorCallback: AURenderCallback = { refCon, _, _, _, frames, ioData in
+    guard let ioData else { return noErr }
+    return Unmanaged<Pipeline>.fromOpaque(refCon).takeUnretainedValue().renderMonitor(ioData, frames: frames)
 }

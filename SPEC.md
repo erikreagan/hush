@@ -207,7 +207,7 @@ Pass-through (with HPF and gain still applied). Not a separate engine in the UI 
 6. Warning banners, only when relevant: noise engine unavailable; Hush Mic isn't the default input (with a "Make Default" button). There is no always-on "default input ✓" line.
 7. Menu-style rows with hover highlights: Record 30-Second Test (then "Show Last Test in Finder"), Settings… (⌘,), Quit Hush (⌘Q).
 
-The popover also has an **Engine** row (Apple · DeepFilterNet) under Strength, hidden if DeepFilterNet failed to load. Still to add: the **Listen** toggle and a hotkey hint on Mute. The delay / drift / dropouts readout lives in Settings → Diagnostics, not the popover.
+The popover also has an **Engine** row (Apple · DeepFilterNet) under Strength, hidden if DeepFilterNet failed to load. Below the Mute and Compare tiles is a full-width **Listen** tile: it plays what apps hear (after engine, gain, and mute) to the output chosen in Settings → Listen (default: the Mac's current output), through a third audio unit with its own drift correction. It is never restored on launch, and it adds a little delay on top of Hush's own, so the voice comes back as a short echo. Built 2026-11-23; **not yet heard by anyone.** Still to add: a hotkey hint on Mute. The delay / drift / dropouts readout lives in Settings → Diagnostics, not the popover.
 
 `build/Hush.app/Contents/MacOS/Hush --snapshot out.png` renders the popover in several states, light and dark, to an image without starting audio or touching settings — use it to review UI changes.
 
@@ -310,7 +310,7 @@ hush/
 
 Build in this order. Each milestone should be demoable before moving on.
 
-**Status (2026-11-23):** Driver installed; the Audient iD2 has arrived and is the selected mic (48 kHz). M1, M2, and M5 are built; M3 is mostly built. Erik's at-the-Mac checks all passed: Compare, Mute, unplug/replug, and the Settings window. Listening result with the Apple engine: **Medium leaves typing clearly audible; Max removes it almost entirely but the voice sounds less natural — still acceptable for meetings.** Max is the working default for now, and this gap is the case for DeepFilterNet (M4). Measured on the Lewitt CONNECT 2 (44.1 kHz) before the iD2 arrived: ~76 ms added delay, room noise floor −56 → −72 dBFS on Medium, and a passed 30-minute soak (`node scripts/test-control.mjs 1800`): zero underruns and overruns, ~1% CPU, 38 MB memory, quiet room. **The soak has not been repeated on the iD2.** M4 (DeepFilterNet) is built and tested offline but not yet run live (see below). M6, M7 not started.
+**Status (2026-11-23):** Driver installed; the Audient iD2 has arrived and is the selected mic (48 kHz). M1, M2, and M5 are built; M3 is mostly built. Erik's at-the-Mac checks all passed: Compare, Mute, unplug/replug, and the Settings window. Listening result with the Apple engine: **Medium leaves typing clearly audible; Max removes it almost entirely but the voice sounds less natural — still acceptable for meetings.** Max is the working default for now, and this gap is the case for DeepFilterNet (M4). Measured on the Lewitt CONNECT 2 (44.1 kHz) before the iD2 arrived: ~76 ms added delay, room noise floor −56 → −72 dBFS on Medium, and a passed 30-minute soak (`node scripts/test-control.mjs 1800`): zero underruns and overruns, ~1% CPU, 38 MB memory, quiet room. **The soak has not been repeated on the iD2.** M4 (DeepFilterNet) is built and running live; Erik's listening comparison of the two engines is pending. M6, M7 not started.
 
 **M1 — Passthrough plumbing** *(built; acceptance pending)*
 - Driver builds and installs; "Hush Mic" appears in System Settings → Sound → Input.
@@ -326,12 +326,13 @@ Build in this order. Each milestone should be demoable before moving on.
 - Built and verified remotely: default-input management (claim on launch once audio is flowing; restore the previous input on quit or SIGTERM, only if Hush Mic is still the default), launch at login (registered; default ON), Settings window, high-pass filter (measured −3 dB at the cutoff, flat above), input/output gain trims, 30-second test recorder.
 - Built and confirmed by Erik at the Mac: hot-plug handling (silence + error + notification on unplug, auto-resume; never falls back to another mic), A/B hold-to-compare, mute, the Settings window.
 - Built but untested: rebuild on wake from sleep.
-- Not built: global hotkeys, Listen (self-monitoring), CPU % in Diagnostics, per-engine custom strength, handling a mid-session sample-rate change on the mic.
+- Built but untested: Listen (self-monitoring).
+- Not built: global hotkeys, CPU % in Diagnostics, per-engine custom strength, handling a mid-session sample-rate change on the mic.
 - ✅ Unplug and replug the mic mid-call → audio resumes on its own, with a notification on unplug.
 
-**M4 — DeepFilterNet engine** *(built; live switching and listening pending)*
+**M4 — DeepFilterNet engine** *(built and running; listening comparison pending)*
 - libDF builds and links; unit test passes (noise reduction, odd buffer sizes); `hush-cli` processes WAVs with both engines.
-- Engine selectable from the popover and the socket (`setEngine`). Switching runs the incoming engine alongside for a 300 ms warm-up, then a 50 ms crossfade; only the selected engine runs otherwise. **Not yet exercised in the running app.**
+- Engine selectable from the popover and the socket (`setEngine`). Switching runs the incoming engine alongside for a 300 ms warm-up, then a 50 ms crossfade; only the selected engine runs otherwise. Verified live on the iD2 (2026-11-23): five switches during a recording with no clicks, zero underruns/overruns, added delay 75 ms on Apple and 59 ms on DeepFilterNet, CPU about 1–2% on either engine.
 - ✅ Typing and mouse clicks are audibly reduced versus the Apple engine on the same test clip; CPU and latency within targets. *(Open: by measurement Apple's Max removes typing more completely — see §6.3. Latency is within target at 40 ms.)*
 
 **M5 — Control surface API** *(built and verified)*

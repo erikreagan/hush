@@ -45,8 +45,10 @@ public enum Devices {
 
     public static func uid(of id: AudioDeviceID) -> String { string(id, kAudioDevicePropertyDeviceUID) }
 
-    static func inputChannelCount(_ id: AudioDeviceID) -> Int {
-        var addr = address(kAudioDevicePropertyStreamConfiguration, kAudioObjectPropertyScopeInput), size: UInt32 = 0
+    static func inputChannelCount(_ id: AudioDeviceID) -> Int { channelCount(id, kAudioObjectPropertyScopeInput) }
+
+    static func channelCount(_ id: AudioDeviceID, _ scope: AudioObjectPropertyScope) -> Int {
+        var addr = address(kAudioDevicePropertyStreamConfiguration, scope), size: UInt32 = 0
         guard AudioObjectGetPropertyDataSize(id, &addr, 0, nil, &size) == noErr, size > 0 else { return 0 }
         let raw = UnsafeMutableRawPointer.allocate(byteCount: Int(size), alignment: MemoryLayout<AudioBufferList>.alignment)
         defer { raw.deallocate() }
@@ -68,6 +70,25 @@ public enum Devices {
             return AudioDevice(id: id, uid: uid, name: string(id, kAudioObjectPropertyName), inputChannels: channels)
         }
     }
+
+    /// Devices Hush can play the monitor signal to (headphones, speakers). Never Hush's own devices.
+    public static func outputDevices() -> [AudioDevice] {
+        var addr = address(kAudioHardwarePropertyDevices), size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(system, &addr, 0, nil, &size) == noErr else { return [] }
+        var ids = [AudioDeviceID](repeating: 0, count: Int(size) / MemoryLayout<AudioDeviceID>.size)
+        guard AudioObjectGetPropertyData(system, &addr, 0, nil, &size, &ids) == noErr else { return [] }
+        return ids.compactMap { id in
+            let uid = string(id, kAudioDevicePropertyDeviceUID)
+            guard channelCount(id, kAudioObjectPropertyScopeOutput) > 0, uid != micUID, uid != feedUID else { return nil }
+            return AudioDevice(id: id, uid: uid, name: string(id, kAudioObjectPropertyName), inputChannels: 0)
+        }
+    }
+
+    public static var defaultOutput: AudioDeviceID {
+        Self.get(system, address(kAudioHardwarePropertyDefaultOutputDevice), default: AudioDeviceID(kAudioObjectUnknown))
+    }
+
+    public static func name(of id: AudioDeviceID) -> String { string(id, kAudioObjectPropertyName) }
 
     /// Looks a device up by UID. Works for hidden devices too, which never show up in the device list.
     public static func device(uid: String) -> AudioDeviceID? {

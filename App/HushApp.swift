@@ -78,6 +78,17 @@ struct Popover: View {
                     .accessibilityHint("Hold to hear the unprocessed microphone")
             }
 
+            Button { model.listening.toggle() } label: {
+                Tile(icon: "headphones", title: "Listen",
+                     subtitle: model.listening ? "Playing to \(model.monitorName) — use headphones" : "Hear what apps hear",
+                     active: model.listening, tint: .accentColor)
+            }
+            .buttonStyle(.plain)
+            .disabled(model.error != nil)
+            if let problem = model.monitorError {
+                Notice(icon: "exclamationmark.circle.fill", tint: .orange, message: problem)
+            }
+
             if let note = model.engineNote {
                 Notice(icon: "exclamationmark.circle.fill", tint: .orange, message: note)
             }
@@ -272,6 +283,7 @@ enum Snapshot {
             state { _ in },
             state { $0.muted = true; $0.rms = -120; $0.peakHold = -120 },
             state { $0.enabled = false; $0.hushMicIsDefault = false; $0.rms = -6; $0.peakHold = -1 },
+            state { $0.listening = true; $0.monitorName = "iD2"; $0.engine = .deepFilter },
             state { $0.error = "Driver not installed — run scripts/install-driver.sh"; $0.rms = -120; $0.peakHold = -120 },
         ]
         let row = { (scheme: ColorScheme) in
@@ -313,6 +325,14 @@ struct SettingsView: View {
                     }
                 }
                 Slider(value: $model.inputGainDB, in: -12...12, step: 0.5) { Text(String(format: "Input trim  %+.1f dB", model.inputGainDB)) }
+            }
+            Section("Listen") {
+                Picker("Play to", selection: $model.monitorUID) {
+                    Text("Current Mac output").tag("")
+                    ForEach(model.outputDevices) { Text($0.name).tag($0.uid) }
+                }
+                Text("Listen plays what apps hear, slightly delayed. Use headphones: through speakers the mic picks it up and it feeds back.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Processing") {
                 Toggle("High-pass filter (cuts rumble below the voice)", isOn: $model.highPassEnabled)
