@@ -33,7 +33,7 @@ struct MenuBarIcon: View {
     static let on = icon("waveform.circle.fill"), off = icon("waveform.circle")
     static let muted = icon("waveform.circle.fill", slashed: true, description: "Hush, muted")
 
-    /// A symbol redrawn as a plain template image, optionally with a slash (SF Symbols has no slashed waveform.circle).
+    /// A symbol redrawn as a plain image: a template, or red with a slash for muted (SF Symbols has no slashed waveform.circle).
     /// All states go through here: a status item lays a symbol image out 1 pt wider than a plain image of the same
     /// size, so mixing the two shifts the neighbouring menu bar icons.
     static func icon(_ name: String, slashed: Bool = false, description: String = "Hush") -> NSImage {
@@ -50,9 +50,10 @@ struct MenuBarIcon: View {
             slash.lineWidth = line * 2.4; slash.stroke()   // cut a gap out of the disc
             NSGraphicsContext.current?.compositingOperation = .sourceOver
             slash.lineWidth = line; slash.stroke()
+            NSColor.systemRed.setFill(); rect.fill(using: .sourceIn)   // muted is red, so not a template
             return true
         }
-        image.isTemplate = true
+        image.isTemplate = !slashed
         image.accessibilityDescription = description
         return image
     }
