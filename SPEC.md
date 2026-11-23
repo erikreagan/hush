@@ -310,7 +310,7 @@ hush/
 
 Build in this order. Each milestone should be demoable before moving on.
 
-**Status (2026-11-23):** Driver installed; the Audient iD2 has arrived and is the selected mic (48 kHz). M1, M2, and M5 are built; M3 is mostly built. Erik's at-the-Mac checks all passed: Compare, Mute, unplug/replug, and the Settings window. Listening result with the Apple engine: **Medium leaves typing clearly audible; Max removes it almost entirely but the voice sounds less natural — still acceptable for meetings.** Max is the working default for now, and this gap is the case for DeepFilterNet (M4). Measured on the Lewitt CONNECT 2 (44.1 kHz) before the iD2 arrived: ~76 ms added delay, room noise floor −56 → −72 dBFS on Medium, and a passed 30-minute soak (`node scripts/test-control.mjs 1800`): zero underruns and overruns, ~1% CPU, 38 MB memory, quiet room. **The soak has not been repeated on the iD2.** M4 (DeepFilterNet) is built and running live; Erik's listening comparison of the two engines is pending. M6 (Stream Deck plugin) is built and working on Erik's Stream Deck +. M7 not started.
+**Status (2026-11-23, end of session):** Everything through M6 is built, committed, and running on Erik's Mac with the Audient iD2 (48 kHz). Erik has used and approved: the popover, Settings, Compare, Mute, unplug/replug, Listen, both engines, live engine switching, global hotkeys, and the Stream Deck + plugin. His preferred setting is **DeepFilterNet on Max** (59 ms added delay); Apple is the alternative (75 ms). **Still to do:** a 30-minute soak on the iD2 with each engine (the only full soak so far was on the old Lewitt mic with the Apple engine: zero dropouts), then M7 — the 2-hour soak and the README. Smaller open items: rebuild-on-wake is untested; CPU % in Diagnostics, the DeepFilterNet low-latency and post-filter options, and handling a mid-session sample-rate change are not built.
 
 **M1 — Passthrough plumbing** *(built; acceptance pending)*
 - Driver builds and installs; "Hush Mic" appears in System Settings → Sound → Input.
@@ -327,7 +327,7 @@ Build in this order. Each milestone should be demoable before moving on.
 - Built and confirmed by Erik at the Mac: hot-plug handling (silence + error + notification on unplug, auto-resume; never falls back to another mic), A/B hold-to-compare, mute, the Settings window.
 - Built but untested: rebuild on wake from sleep.
 - Built but untested: Listen (self-monitoring).
-- Built but untested: global hotkeys (Settings → Shortcuts; system-wide via Carbon hotkeys, no Accessibility permission needed; none assigned by default; the Mute tile shows its shortcut).
+- Built and confirmed by Erik: global hotkeys (Settings → Shortcuts; system-wide via Carbon hotkeys, no Accessibility permission needed; none assigned by default; the Mute tile shows its shortcut).
 - Not built: CPU % in Diagnostics, per-engine custom strength, handling a mid-session sample-rate change on the mic.
 - ✅ Unplug and replug the mic mid-call → audio resumes on its own, with a notification on unplug.
 
