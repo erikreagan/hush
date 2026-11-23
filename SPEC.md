@@ -265,17 +265,17 @@ State is pushed on every change and immediately on subscribe. The same command l
 - Built with `@elgato/streamdeck` v2 (2.1.2), TypeScript, bundled with esbuild into `bin/plugin.js`. Scaffolded by hand rather than with `streamdeck create` (that wizard is interactive). Project lives in `StreamDeck/`: `npm run build`, `npm run validate`, `npm run link` (once, then restart the Stream Deck app so it discovers the plugin), `npm run restart` after each rebuild.
 - Source is two files: `src/plugin.ts` (connection + actions) and `src/faces.ts` (key artwork, drawn as SVG from Hush's state — there are no per-state image files).
 - As built: the dial uses Stream Deck's built-in `$B1` layout (title, icon, value text, level bar); rotating steps the strength up or down and stops at the ends rather than wrapping; reconnect backoff is 0.5 s doubling to 4 s; the meter is redrawn at most 10×/s and only for keys on screen.
-- Maintains one WebSocket connection to Hush; auto-reconnects with backoff. When Hush isn't running, all keys show a dimmed "Hush offline" image.
+- Maintains one WebSocket connection to Hush; auto-reconnects with backoff. When Hush isn't running, all keys show a dimmed "Offline" image.
 
 ### 9.1 Actions
 
 | Action | Controller | Behavior | Display |
 |---|---|---|---|
-| **Noise Removal** | Key | Press = toggle | Two states: On (filled icon) / Off (outline). Reflects state pushed from app, not just local presses |
-| **Strength** | Key | Press = cycle Light→Medium→Max. Property Inspector option: "Set specific preset" instead of cycle | Title shows current preset |
-| **Mute** | Key | Press = toggle mute. PI option: push-to-talk mode (mute released while held) | Red when muted |
+| **Noise Removal** | Key | Press = toggle | Two states: On (the app icon: white disc with dark bars on the navy gradient) / Off (outlined grey disc on dark). Reflects state pushed from app, not just local presses |
+| **Strength** | Key | Press = cycle Light→Medium→Max. Property Inspector option: "Set specific preset" instead of cycle | Three rising steps with the preset name; navy background with white steps when that preset is active, dark and dim otherwise |
+| **Mute** | Key | Press = toggle mute. PI option: push-to-talk mode (mute released while held) | Microphone; slashed on red when muted |
 | **Level Meter** | Key | Press = toggle noise removal (optional, configurable) | Live vertical meter rendered as SVG data URL via `setImage`, ~10 updates/sec max |
-| **Hush Dial** | Dial (Stream Deck +) | Rotate = cycle strength; press = toggle noise removal; touch = mute | Touch strip layout with level bar + engine/preset text |
+| **Hush Dial** | Dial (Stream Deck +) | Rotate = cycle strength; press = toggle noise removal; touch = mute | Touch strip layout with level bar + engine/preset text; icon is the disc (navy on, outlined off, slashed on red when muted, like the menu bar) |
 
 - Use `showAlert()` when a command fails (e.g., app offline).
 - Throttle meter image updates to ≤ 10/sec per key to avoid flooding the Stream Deck app; only send meter updates while a meter action is visible (`willAppear`/`willDisappear`).
