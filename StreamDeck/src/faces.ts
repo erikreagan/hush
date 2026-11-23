@@ -63,8 +63,11 @@ export function strengthFace(state: HushState, fixed?: Strength): string {
     return active ? svg(NAVY, steps(STRENGTHS.indexOf(shown), WHITE, "#FFFFFF40") + caption(LABEL[shown], WHITE))
         : svg(DARK, steps(STRENGTHS.indexOf(shown), DIM, "#3A3A3C") + caption(LABEL[shown], DIM));
 }
-/** The dial's touch-strip icon: no caption, so the glyph fills the face. Muted matches the Mac menu bar's slashed disc. */
+/** The dial's touch-strip icon: no caption and no background square, so the disc itself carries the colour (navy on, red muted) with white bars. */
 export function dialIcon(state: HushState): string {
-    if (state.muted) return svg(RED, disc(WHITE, RED, { slashedOn: RED }, 72, 72, 54));
-    return state.enabled ? svg(NAVY, disc(WHITE, INK, {}, 72, 72, 54)) : svg(DARK, disc(DIM, DIM, { outlined: true }, 72, 72, 54));
+    const r = 62, gap = r * 0.58, reach = r * 0.86;   // the gap stays inside the disc; the slash pokes out past it
+    if (state.muted) return svg("none", disc(RED, WHITE, {}, 72, 72, r) +
+        `<path d="M${72 - gap} ${72 - gap}L${72 + gap} ${72 + gap}" stroke="${RED}" stroke-width="17" stroke-linecap="round"/>` +
+        `<path d="M${72 - reach} ${72 - reach}L${72 + reach} ${72 + reach}" stroke="${WHITE}" stroke-width="7" stroke-linecap="round"/>`);
+    return svg("none", state.enabled ? disc(NAVY, WHITE, {}, 72, 72, r) : disc(DIM, DIM, { outlined: true }, 72, 72, r));
 }
