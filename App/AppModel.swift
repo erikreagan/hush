@@ -53,6 +53,13 @@ final class AppModel {
     var monitorName = ""
     var monitorError: String?
 
+    // Global shortcuts (system-wide, user-assignable; none by default).
+    let hotkeys = Hotkeys()
+    var toggleShortcut: Shortcut? { didSet { bindShortcut(1, toggleShortcut, key: "shortcut.toggle") { [weak self] in self?.enabled.toggle() } } }
+    var muteShortcut: Shortcut? { didSet { bindShortcut(2, muteShortcut, key: "shortcut.mute") { [weak self] in self?.muted.toggle() } } }
+    var cycleShortcut: Shortcut? { didSet { bindShortcut(3, cycleShortcut, key: "shortcut.cycle") { [weak self] in self?.cycleStrength() } } }
+    var shortcutError: String?
+
     var recordingTest = false
     var testResult: String?
     var testFiles: [URL] = []
@@ -94,7 +101,7 @@ final class AppModel {
         inputUID = defaults.string(forKey: "inputUID") ?? ""
         channel = defaults.integer(forKey: "channel")
         enabled = defaults.object(forKey: "enabled") as? Bool ?? true
-        strength = Strength(rawValue: defaults.string(forKey: "strength") ?? "") ?? .medium
+        strength = Strength(rawValue: defaults.string(forKey: "strength") ?? "") ?? .max
         highPassEnabled = defaults.bool(forKey: "highPassEnabled")
         highPassHz = defaults.object(forKey: "highPassHz") as? Double ?? 80
         inputGainDB = defaults.double(forKey: "inputGainDB")
@@ -104,13 +111,20 @@ final class AppModel {
         port = defaults.object(forKey: "port") as? Int ?? 47823
         launchAtLogin = SMAppService.mainApp.status == .enabled
         monitorUID = defaults.string(forKey: "monitorUID") ?? ""
-        engine = EngineID(rawValue: defaults.string(forKey: "engine") ?? "") ?? .apple
+        engine = EngineID(rawValue: defaults.string(forKey: "engine") ?? "") ?? .deepFilter
         pipeline.enabled = enabled
         pipeline.engineID = engine
         wetDry = strength.wetDryPercent
         applyProcessing()
 
         if Self.isSnapshot { return }
+
+        // Assigning after init runs the didSet observers, which register the hotkeys with macOS.
+        Task {
+            toggleShortcut = savedShortcut("shortcut.toggle")
+            muteShortcut = savedShortcut("shortcut.mute")
+            cycleShortcut = savedShortcut("shortcut.cycle")
+        }
 
         // Quit (menu, logout, or `kill`): hand the default input back before we go silent.
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
@@ -246,9 +260,7 @@ final class AppModel {
         case "setStrength":
             guard let preset = (value as? String).flatMap(Strength.init) else { return "setStrength needs light, medium, or max" }
             strength = preset
-        case "cycleStrength":
-            let all = Strength.allCases
-            strength = all[(all.firstIndex(of: strength)! + 1) % all.count]
+        case "cycleStrength": cycleStrength()
         case "setEngine":
             guard let choice = (value as? String).flatMap(EngineID.init) else { return "setEngine needs apple or deepFilter" }
             guard choice == .apple || deepFilterAvailable else { return "DeepFilterNet isn't available" }
@@ -266,6 +278,21 @@ final class AppModel {
             "enabled": enabled, "muted": muted, "strength": strength.rawValue, "engine": engine.rawValue,
             "inputConnected": error == nil, "driverInstalled": driverInstalled,
         ], onlyIfChanged: true)
+    }
+
+    func cycleStrength() {
+        let all = Strength.allCases
+        strength = all[(all.firstIndex(of: strength)! + 1) % all.count]
+    }
+
+    private func savedShortcut(_ key: String) -> Shortcut? {
+        defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(Shortcut.self, from: $0) }
+    }
+
+    private func bindShortcut(_ id: UInt32, _ shortcut: Shortcut?, key: String, action: @escaping () -> Void) {
+        defaults.set(shortcut.flatMap { try? JSONEncoder().encode($0) }, forKey: key)
+        let accepted = hotkeys.bind(id, to: shortcut, action: action)
+        shortcutError = accepted ? nil : "macOS wouldn't register \(shortcut?.display ?? "that shortcut") — it may be taken by another app."
     }
 
     private func applyListening() {

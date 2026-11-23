@@ -207,12 +207,12 @@ Pass-through (with HPF and gain still applied). Not a separate engine in the UI 
 6. Warning banners, only when relevant: noise engine unavailable; Hush Mic isn't the default input (with a "Make Default" button). There is no always-on "default input ✓" line.
 7. Menu-style rows with hover highlights: Record 30-Second Test (then "Show Last Test in Finder"), Settings… (⌘,), Quit Hush (⌘Q).
 
-The popover also has an **Engine** row (Apple · DeepFilterNet) under Strength, hidden if DeepFilterNet failed to load. Below the Mute and Compare tiles is a full-width **Listen** tile: it plays what apps hear (after engine, gain, and mute) to the output chosen in Settings → Listen (default: the Mac's current output), through a third audio unit with its own drift correction. It is never restored on launch, and it adds a little delay on top of Hush's own, so the voice comes back as a short echo. Built 2026-11-23; **not yet heard by anyone.** Still to add: a hotkey hint on Mute. The delay / drift / dropouts readout lives in Settings → Diagnostics, not the popover.
+The popover also has an **Engine** row (Apple · DeepFilterNet) under Strength, hidden if DeepFilterNet failed to load. Below the Mute and Compare tiles is a full-width **Listen** tile: it plays what apps hear (after engine, gain, and mute) to the output chosen in Settings → Listen (default: the Mac's current output), through a third audio unit with its own drift correction. It is never restored on launch, and it adds a little delay on top of Hush's own, so the voice comes back as a short echo. Built 2026-11-23; **not yet heard by anyone.** The Mute tile shows its shortcut when one is assigned. The delay / drift / dropouts readout lives in Settings → Diagnostics, not the popover.
 
 `build/Hush.app/Contents/MacOS/Hush --snapshot out.png` renders the popover in several states, light and dark, to an image without starting audio or touching settings — use it to review UI changes.
 
 **Settings window:**
-Built: Input, Processing (high-pass + output trim), System, Stream Deck (port, client count), and Diagnostics (delay, drift, under/overruns, engine parameter dump). Not built: Shortcuts, the DFN options, per-engine custom strength, CPU %, and the test-record button (it's in the popover instead).
+Built: Input, Processing (high-pass + output trim), System, Stream Deck (port, client count), and Diagnostics (delay, drift, under/overruns, engine parameter dump). Also built: Listen (output picker) and Shortcuts (three recorders). Not built: the DFN options, per-engine custom strength, CPU %, and the test-record button (it's in the popover instead).
 
 - *Input:* device picker (default: Audient iD2), channel picker (default: 1), input gain trim
 - *Processing:* HPF on/off + frequency slider; per-engine custom strength; DFN low-latency model toggle; DFN post-filter beta
@@ -327,7 +327,8 @@ Build in this order. Each milestone should be demoable before moving on.
 - Built and confirmed by Erik at the Mac: hot-plug handling (silence + error + notification on unplug, auto-resume; never falls back to another mic), A/B hold-to-compare, mute, the Settings window.
 - Built but untested: rebuild on wake from sleep.
 - Built but untested: Listen (self-monitoring).
-- Not built: global hotkeys, CPU % in Diagnostics, per-engine custom strength, handling a mid-session sample-rate change on the mic.
+- Built but untested: global hotkeys (Settings → Shortcuts; system-wide via Carbon hotkeys, no Accessibility permission needed; none assigned by default; the Mute tile shows its shortcut).
+- Not built: CPU % in Diagnostics, per-engine custom strength, handling a mid-session sample-rate change on the mic.
 - ✅ Unplug and replug the mic mid-call → audio resumes on its own, with a notification on unplug.
 
 **M4 — DeepFilterNet engine** *(built and running; listening comparison pending)*
@@ -371,10 +372,7 @@ Build in this order. Each milestone should be demoable before moving on.
 
 ## 14. Open questions (decide during build)
 
-Resolved: the app name is Hush; the Stream Deck hardware is a Stream Deck +, so the dial action stays.
+Resolved: the app name is Hush; the Stream Deck hardware is a Stream Deck +, so the dial action stays. **Engine verdict (Erik, 2026-11-23): DeepFilterNet on Max is the preferred setting** — the voice sounds really good and typing and other noises are filtered really well — so a fresh install now defaults to DeepFilterNet + Max, with the Apple engine kept as the alternative. Its 59 ms total delay also settles the earlier question about the Apple engine's ~75 ms.
 
 1. App icon / custom menu bar glyph.
-2. After M4 listening tests: does one engine win outright? If so, consider making it the default and keeping the other as fallback.
-3. Whether the iD2's onboard HPF/EQ applies to the USB recording path (check with the 30-second test recorder). If yes, leave Hush's HPF off by default.
-4. Is ~75 ms of added delay with the Apple engine acceptable on calls? If not, DeepFilterNet's no-lookahead model (~20 ms) becomes the likely default.
-5. Does the hidden Hush Feed device open correctly by UID on a live install (§5)? If not, switch to the single-visible-device fallback.
+2. Whether the iD2's onboard HPF/EQ applies to the USB recording path (check with the 30-second test recorder). If yes, leave Hush's HPF off by default.

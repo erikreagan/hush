@@ -62,7 +62,8 @@ struct Popover: View {
             HStack(spacing: 8) {
                 Button { model.muted.toggle() } label: {
                     Tile(icon: model.muted ? "mic.slash.fill" : "mic.fill", title: "Mute",
-                         subtitle: model.muted ? "Muted" : "Mic is live", active: model.muted, tint: .red)
+                         subtitle: (model.muted ? "Muted" : "Mic is live") + (model.muteShortcut.map { "  \($0.display)" } ?? ""),
+                         active: model.muted, tint: .red)
                 }
                 .buttonStyle(.plain)
 
@@ -345,6 +346,13 @@ struct SettingsView: View {
                 if let problem = model.loginItemError { Text(problem).font(.caption).foregroundStyle(.red) }
                 Toggle("Make Hush Mic the default input when Hush starts", isOn: $model.claimDefaultOnLaunch)
                 Toggle("Restore the previous default input when Hush quits", isOn: $model.restoreDefaultOnQuit)
+            }
+            Section("Shortcuts") {
+                LabeledContent("Noise removal on/off") { ShortcutRecorder(shortcut: $model.toggleShortcut, hotkeys: model.hotkeys) }
+                LabeledContent("Mute") { ShortcutRecorder(shortcut: $model.muteShortcut, hotkeys: model.hotkeys) }
+                LabeledContent("Next strength") { ShortcutRecorder(shortcut: $model.cycleShortcut, hotkeys: model.hotkeys) }
+                if let problem = model.shortcutError { Text(problem).font(.caption).foregroundStyle(.red) }
+                Text("These work in any app. Use at least one of ⌘ ⌥ ⌃, or a function key.").font(.caption).foregroundStyle(.secondary)
             }
             Section("Stream Deck") {
                 TextField("Control port (applies after relaunch)", value: $model.port, format: .number.grouping(.never))
