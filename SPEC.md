@@ -296,7 +296,7 @@ hush/
 
 Build in this order. Each milestone should be demoable before moving on.
 
-**Status (2026-11-20, end of day):** Driver installed; app running against a Lewitt CONNECT 2 (44.1 kHz) — the Audient iD2 arrives 2026-11-22. M1, M2, and M5 are built. Erik's first 30-second listening test confirmed the noise removal is clearly audible ("great starting point"); a detailed listening pass (voice naturalness, typing suppression, how the delay feels on calls) is still open. Measured: ~76 ms added delay, room noise floor −56 → −72 dBFS on Medium, test recordings free of gaps and clicks. The 30-minute soak (`node scripts/test-control.mjs 1800`) passed on the CONNECT 2 with the Apple engine on Medium: zero underruns and overruns, delay steady at 76 ms, ~1% CPU, 38 MB memory (quiet room, no speech). It needs repeating on the Audient iD2. M3 is mostly built (see below). M4, M6, M7 not started.
+**Status (2026-11-23):** Driver installed; the Audient iD2 has arrived and is the selected mic (48 kHz). M1, M2, and M5 are built; M3 is mostly built. Erik's at-the-Mac checks all passed: Compare, Mute, unplug/replug, and the Settings window. Listening result with the Apple engine: **Medium leaves typing clearly audible; Max removes it almost entirely but the voice sounds less natural — still acceptable for meetings.** Max is the working default for now, and this gap is the case for DeepFilterNet (M4). Measured on the Lewitt CONNECT 2 (44.1 kHz) before the iD2 arrived: ~76 ms added delay, room noise floor −56 → −72 dBFS on Medium, and a passed 30-minute soak (`node scripts/test-control.mjs 1800`): zero underruns and overruns, ~1% CPU, 38 MB memory, quiet room. **The soak has not been repeated on the iD2.** M4, M6, M7 not started.
 
 **M1 — Passthrough plumbing** *(built; acceptance pending)*
 - Driver builds and installs; "Hush Mic" appears in System Settings → Sound → Input.
@@ -310,7 +310,8 @@ Build in this order. Each milestone should be demoable before moving on.
 
 **M3 — Menu bar app complete** *(mostly built)*
 - Built and verified remotely: default-input management (claim on launch once audio is flowing; restore the previous input on quit or SIGTERM, only if Hush Mic is still the default), launch at login (registered; default ON), Settings window, high-pass filter (measured −3 dB at the cutoff, flat above), input/output gain trims, 30-second test recorder.
-- Built but untested (need someone at the Mac): hot-plug handling (silence + error + notification on unplug, auto-resume; never falls back to another mic), rebuild on wake, A/B hold-to-compare, the Settings window's appearance.
+- Built and confirmed by Erik at the Mac: hot-plug handling (silence + error + notification on unplug, auto-resume; never falls back to another mic), A/B hold-to-compare, mute, the Settings window.
+- Built but untested: rebuild on wake from sleep.
 - Not built: global hotkeys, Listen (self-monitoring), CPU % in Diagnostics, per-engine custom strength, handling a mid-session sample-rate change on the mic.
 - ✅ Unplug and replug the mic mid-call → audio resumes on its own, with a notification on unplug.
 
