@@ -11,12 +11,40 @@ struct HushApp: App {
         MenuBarExtra {
             Popover(model: model)
         } label: {
-            Image(systemName: model.icon)
+            MenuBarIcon(model: model)
         }
         .menuBarExtraStyle(.window)
 
         Settings { SettingsView(model: model) }
     }
+}
+
+struct MenuBarIcon: View {
+    let model: AppModel
+
+    var body: some View {
+        if model.muted && model.error == nil { Image(nsImage: Self.muted) } else { Image(systemName: model.icon) }
+    }
+
+    /// waveform.circle.fill with a slash: SF Symbols has no slashed variant. A template image, so the menu bar tints it.
+    static let muted: NSImage = {
+        let base = NSImage(systemSymbolName: "waveform.circle.fill", accessibilityDescription: "Hush, muted")!
+        let image = NSImage(size: base.size, flipped: false) { rect in
+            base.draw(in: rect)
+            let inset = rect.width * 0.04, line = rect.width / 13   // tuned by eye against --snapshot
+            let slash = NSBezierPath()
+            slash.move(to: NSPoint(x: rect.minX + inset, y: rect.maxY - inset))
+            slash.line(to: NSPoint(x: rect.maxX - inset, y: rect.minY + inset))
+            slash.lineCapStyle = .round
+            NSGraphicsContext.current?.compositingOperation = .destinationOut
+            slash.lineWidth = line * 2.4; slash.stroke()   // cut a gap out of the disc
+            NSGraphicsContext.current?.compositingOperation = .sourceOver
+            slash.lineWidth = line; slash.stroke()
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }()
 }
 
 /// Laid out like a system Control Center module: title + master switch, live level, a few large
@@ -317,6 +345,15 @@ enum Snapshot {
                       to: (path as NSString).deletingPathExtension + "-\(pane.rawValue.lowercased())-\(scheme == .dark ? "dark" : "light").png")
             }
         }
+        // Menu bar icons (on, off, muted): out.png -> out-menubar.png
+        let icons = { (scheme: ColorScheme) in
+            HStack(spacing: 16) { ForEach(0..<3, id: \.self) { MenuBarIcon(model: states[$0]) } }
+                .padding(12)
+                .foregroundStyle(scheme == .dark ? .white : .black)
+                .background(scheme == .dark ? Color(white: 0.15) : Color(white: 0.9))
+        }
+        write(VStack(spacing: 0) { icons(.light); icons(.dark) }.scaleEffect(4).frame(width: 520, height: 320),
+              to: (path as NSString).deletingPathExtension + "-menubar.png")
         write(VStack(spacing: 0) { row(.light); row(.dark) }, to: path)
         exit(0)
     }

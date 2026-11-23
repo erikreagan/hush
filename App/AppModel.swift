@@ -93,7 +93,7 @@ final class AppModel {
 
     var icon: String {
         if error != nil { return "exclamationmark.triangle" }
-        if muted { return "mic.slash.fill" }
+        // Muted is drawn, not a symbol: see MenuBarIcon.
         return enabled ? "waveform.circle.fill" : "waveform.circle"
     }
 
