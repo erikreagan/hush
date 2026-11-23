@@ -39,6 +39,7 @@ assert.ok(meters.length > 10, "meter stream flows at ~15 Hz");
 await command("setEnabled", original.enabled);
 await command("setMuted", original.muted);
 await command("setStrength", original.strength);
+await command("setEngine", original.engine);
 assert.deepEqual(state, original);
 console.log("commands OK; meter messages:", meters.length);
 
