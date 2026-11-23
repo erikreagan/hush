@@ -26,24 +26,22 @@ struct MenuBarIcon: View {
         if model.error != nil {
             Image(systemName: "exclamationmark.triangle")
         } else {
-            // All three states are NSImages of one size: mixing in Image(systemName:) made the menu bar item change width on mute.
             Image(nsImage: model.muted ? Self.muted : model.enabled ? Self.on : Self.off)
         }
     }
 
-    static let on = symbol("waveform.circle.fill"), off = symbol("waveform.circle")
-    static func symbol(_ name: String) -> NSImage {
-        let image = NSImage(systemSymbolName: name, accessibilityDescription: "Hush")!
-        image.isTemplate = true
-        return image
-    }
+    static let on = icon("waveform.circle.fill"), off = icon("waveform.circle")
+    static let muted = icon("waveform.circle.fill", slashed: true, description: "Hush, muted")
 
-    /// waveform.circle.fill with a slash: SF Symbols has no slashed variant. A template image, so the menu bar tints it.
-    static let muted: NSImage = {
-        let base = NSImage(systemSymbolName: "waveform.circle.fill", accessibilityDescription: "Hush, muted")!
+    /// A symbol redrawn as a plain template image, optionally with a slash (SF Symbols has no slashed waveform.circle).
+    /// All states go through here: a status item lays a symbol image out 1 pt wider than a plain image of the same
+    /// size, so mixing the two shifts the neighbouring menu bar icons.
+    static func icon(_ name: String, slashed: Bool = false, description: String = "Hush") -> NSImage {
+        let base = NSImage(systemSymbolName: name, accessibilityDescription: nil)!
         let image = NSImage(size: base.size, flipped: false) { rect in
             base.draw(in: rect)
-            let inset = rect.width * 0.04, line = rect.width / 13   // tuned by eye against --snapshot
+            guard slashed else { return true }
+            let inset = rect.width * 0.04, line = rect.width / 13   // tuned by eye
             let slash = NSBezierPath()
             slash.move(to: NSPoint(x: rect.minX + inset, y: rect.maxY - inset))
             slash.line(to: NSPoint(x: rect.maxX - inset, y: rect.minY + inset))
@@ -55,8 +53,9 @@ struct MenuBarIcon: View {
             return true
         }
         image.isTemplate = true
+        image.accessibilityDescription = description
         return image
-    }()
+    }
 }
 
 /// Laid out like a system Control Center module: title + master switch, live level, a few large
