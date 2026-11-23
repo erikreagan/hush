@@ -91,14 +91,6 @@ struct Popover: View {
             }
             .opacity(model.enabled ? 1 : 0.4).disabled(!model.enabled)
 
-            if model.deepFilterAvailable {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Engine").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                    Segments(title: "Engine", options: EngineID.allCases, label: \.label, selection: $model.engine)
-                }
-                .opacity(model.enabled ? 1 : 0.4).disabled(!model.enabled)
-            }
-
             HStack(spacing: 8) {
                 Button { model.muted.toggle() } label: {
                     Tile(icon: model.muted ? "mic.slash.fill" : "mic.fill", title: "Mute",
@@ -141,20 +133,6 @@ struct Popover: View {
             Divider()
 
             VStack(spacing: 1) {
-                Button { model.recordTest() } label: {
-                    HStack {
-                        Text(model.recordingTest ? "Recording Test…" : "Record 30-Second Test")
-                        Spacer()
-                        if model.recordingTest { ProgressView().controlSize(.small) }
-                    }
-                }
-                .disabled(model.recordingTest || model.error != nil)
-                if !model.testFiles.isEmpty, !model.recordingTest {
-                    Button("Show Last Test in Finder") { NSWorkspace.shared.activateFileViewerSelecting(model.testFiles) }
-                }
-                if let result = model.testResult, model.testFiles.isEmpty {
-                    Text(result).font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8)
-                }
                 SettingsLink { HStack { Text("Settings…"); Spacer(); Text("⌘,").foregroundStyle(.tertiary) } }
                     .keyboardShortcut(",")
                     .simultaneousGesture(TapGesture().onEnded { NSApplication.shared.activate() })   // menu bar apps open windows behind otherwise
@@ -325,7 +303,7 @@ enum Snapshot {
             state { _ in },
             state { $0.muted = true; $0.rms = -120; $0.peakHold = -120 },
             state { $0.enabled = false; $0.hushMicIsDefault = false; $0.rms = -6; $0.peakHold = -1 },
-            state { $0.listening = true; $0.monitorName = "iD2"; $0.engine = .deepFilter },
+            state { $0.listening = true; $0.monitorName = "iD2" },
             state { $0.error = "Driver not installed — run scripts/install-driver.sh"; $0.rms = -120; $0.peakHold = -120 },
         ]
         let row = { (scheme: ColorScheme) in
@@ -439,6 +417,12 @@ struct SettingsView: View {
                     SliderRow(title: "Input trim", value: $model.inputGainDB, range: -12...12, step: 0.5) { String(format: "%+.1f dB", $0) }
                 } header: { Text("Input") } footer: { Text("Speak normally and adjust trim until the level sits in the green.") }
                 Section("Processing") {
+                    if model.deepFilterAvailable {
+                        Picker("Engine", selection: $model.engine) {
+                            ForEach(EngineID.allCases) { Text($0.label).tag($0) }
+                        }
+                        .disabled(!model.enabled)
+                    }
                     Toggle(isOn: $model.highPassEnabled) {
                         Text("High-pass filter"); Text("Cuts rumble below the voice")
                     }
@@ -487,6 +471,17 @@ struct SettingsView: View {
                     LabeledContent("Clock drift correction", value: String(format: "%+.0f ppm", model.driftPPM))
                     LabeledContent("Buffer underruns / overruns", value: "\(model.underruns) / \(model.overruns)")
                     Text(model.engineInfo).font(.caption.monospaced()).textSelection(.enabled)
+                    LabeledContent {
+                        if model.recordingTest { ProgressView().controlSize(.small) }
+                        if !model.testFiles.isEmpty, !model.recordingTest {
+                            Button("Show Last Test in Finder") { NSWorkspace.shared.activateFileViewerSelecting(model.testFiles) }
+                        }
+                        Button(model.recordingTest ? "Recording Test…" : "Record 30-Second Test") { model.recordTest() }
+                            .disabled(model.recordingTest || model.error != nil)
+                    } label: {
+                        Text("Test recording")
+                        if let result = model.testResult { Text(result) } else { Text("Saves the raw and cleaned mic side by side") }
+                    }
                 }
             }
         }

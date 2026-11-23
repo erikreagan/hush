@@ -205,14 +205,14 @@ Pass-through (with HPF and gain still applied). Not a separate engine in the UI 
 4. **Strength:** full-width custom segments **Light · Medium · Max**; the selected one is filled with the accent colour. (Custom because the system segmented control won't stretch to the panel width.)
 5. Two tiles: **Mute** (icon circle turns solid red when muted) and **Compare** (press and hold for the raw mic — the A/B control).
 6. Warning banners, only when relevant: noise engine unavailable; Hush Mic isn't the default input (with a "Make Default" button). There is no always-on "default input ✓" line.
-7. Menu-style rows with hover highlights: Record 30-Second Test (then "Show Last Test in Finder"), Settings… (⌘,), Quit Hush (⌘Q).
+7. Menu-style rows with hover highlights: Settings… (⌘,), Quit Hush (⌘Q).
 
-The popover also has an **Engine** row (Apple · DeepFilterNet) under Strength, hidden if DeepFilterNet failed to load. Below the Mute and Compare tiles is a full-width **Listen** tile: it plays what apps hear (after engine, gain, and mute) to the output chosen in Settings → Listen (default: the Mac's current output), through a third audio unit with its own drift correction. It is never restored on launch, and it adds a little delay on top of Hush's own, so the voice comes back as a short echo. Built 2026-11-23; **not yet heard by anyone.** The Mute tile shows its shortcut when one is assigned. The delay / drift / dropouts readout lives in Settings → Diagnostics, not the popover.
+Below the Mute and Compare tiles is a full-width **Listen** tile: it plays what apps hear (after engine, gain, and mute) to the output chosen in Settings → Listen (default: the Mac's current output), through a third audio unit with its own drift correction. It is never restored on launch, and it adds a little delay on top of Hush's own, so the voice comes back as a short echo. Built 2026-11-23; **not yet heard by anyone.** The Mute tile shows its shortcut when one is assigned. The delay / drift / dropouts readout lives in Settings → Diagnostics, not the popover.
 
 `build/Hush.app/Contents/MacOS/Hush --snapshot out.png` renders the popover in several states, light and dark, to an image without starting audio or touching settings — use it to review UI changes.
 
 **Settings window:**
-Built: Input, Processing (high-pass + output trim), System, Stream Deck (port, client count), and Diagnostics (delay, drift, under/overruns, engine parameter dump). Also built: Listen (output picker) and Shortcuts (three recorders). Not built: the DFN options, per-engine custom strength, CPU %, and the test-record button (it's in the popover instead).
+Built: Input, Processing (engine choice Apple · DeepFilterNet, hidden if DeepFilterNet failed to load; high-pass + output trim), System, Stream Deck (port, client count), and Diagnostics (delay, drift, under/overruns, engine parameter dump, and the 30-second test recorder with "Show Last Test in Finder"). Also built: Listen (output picker) and Shortcuts (three recorders). Not built: the DFN options, per-engine custom strength, and CPU %.
 
 - *Input:* device picker (default: Audient iD2), channel picker (default: 1), input gain trim
 - *Processing:* HPF on/off + frequency slider; per-engine custom strength; DFN low-latency model toggle; DFN post-filter beta
@@ -333,7 +333,7 @@ Build in this order. Each milestone should be demoable before moving on.
 
 **M4 — DeepFilterNet engine** *(built and running; listening comparison pending)*
 - libDF builds and links; unit test passes (noise reduction, odd buffer sizes); `hush-cli` processes WAVs with both engines.
-- Engine selectable from the popover and the socket (`setEngine`). Switching runs the incoming engine alongside for a 300 ms warm-up, then a 50 ms crossfade; only the selected engine runs otherwise. Verified live on the iD2 (2026-11-23): five switches during a recording with no clicks, zero underruns/overruns, added delay 75 ms on Apple and 59 ms on DeepFilterNet, CPU about 1–2% on either engine.
+- Engine selectable from Settings → Audio and the socket (`setEngine`). Switching runs the incoming engine alongside for a 300 ms warm-up, then a 50 ms crossfade; only the selected engine runs otherwise. Verified live on the iD2 (2026-11-23): five switches during a recording with no clicks, zero underruns/overruns, added delay 75 ms on Apple and 59 ms on DeepFilterNet, CPU about 1–2% on either engine.
 - ✅ Typing and mouse clicks are audibly reduced versus the Apple engine on the same test clip; CPU and latency within targets. *(Open: by measurement Apple's Max removes typing more completely — see §6.3. Latency is within target at 40 ms.)*
 
 **M5 — Control surface API** *(built and verified)*
