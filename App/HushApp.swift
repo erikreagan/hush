@@ -75,6 +75,14 @@ struct Popover: View {
                 Toggle("Noise Removal", isOn: $model.enabled).toggleStyle(.switch).labelsHidden()
             }
 
+            HStack {
+                Text("Preset").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Spacer()
+                PresetMenu(model: model).fixedSize()
+            }
+            .padding(.leading, 10).padding(.trailing, 6).padding(.vertical, 6)
+            .background(.primary.opacity(0.06), in: .rect(cornerRadius: 10, style: .continuous))
+
             if let error = model.error {
                 Notice(icon: "exclamationmark.triangle.fill", tint: .red, message: error, action: "Retry") { model.restart() }
             }
@@ -146,6 +154,25 @@ struct Popover: View {
         }
         .padding(16)
         .frame(width: 300)
+    }
+}
+
+/// Picks the active preset. A menu of toggles rather than a Picker, so presets whose mic is away can be greyed out.
+struct PresetMenu: View {
+    let model: AppModel
+    /// The popover won't switch to a preset whose mic isn't connected; Settings will (Hush then waits for the mic).
+    var allowsUnavailable = false
+
+    var body: some View {
+        Menu(model.activePreset?.name ?? "") {
+            ForEach(model.presets) { preset in
+                let active = preset.id == model.activePresetID, available = model.isAvailable(preset)
+                Toggle(available ? preset.name : "\(preset.name) (mic not connected)",
+                       isOn: Binding(get: { active }, set: { _ in model.activate(preset.id) }))
+                    .disabled(!available && !allowsUnavailable && !active)
+            }
+        }
+        .accessibilityLabel("Preset")
     }
 }
 
@@ -303,7 +330,7 @@ enum Snapshot {
             state { _ in },
             state { $0.muted = true; $0.rms = -120; $0.peakHold = -120 },
             state { $0.enabled = false; $0.hushMicIsDefault = false; $0.rms = -6; $0.peakHold = -1 },
-            state { $0.listening = true; $0.monitorName = "iD2" },
+            state { $0.listening = true; $0.monitorName = "iD2"; $0.renamePreset($0.activePresetID, to: "Desk") },
             state { $0.error = "Driver not installed — run scripts/install-driver.sh"; $0.rms = -120; $0.peakHold = -120 },
         ]
         let row = { (scheme: ColorScheme) in
@@ -328,10 +355,16 @@ enum Snapshot {
             view.cacheDisplay(in: view.bounds, to: bitmap)
             try? bitmap.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
         }
-        // Settings panes: out.png -> out-audio-light.png etc.
+        // Settings panes: out.png -> out-audio-light.png etc. Three presets, one whose mic isn't connected.
+        let settings = state {
+            $0.devices = [AudioDevice(id: 0, uid: $0.inputUID, name: "iD2", inputChannels: 2),
+                          AudioDevice(id: 1, uid: "builtin", name: "MacBook Pro Microphone", inputChannels: 1)]
+            $0.renamePreset($0.activePresetID, to: "Desk")
+            $0.presets += [Preset(name: "Laptop", inputUID: "builtin", strength: .medium, engine: .apple), Preset(name: "Travel", inputUID: "usb")]
+        }
         for pane in SettingsPane.allCases {
             for scheme in [ColorScheme.light, .dark] {
-                write(SettingsView(model: states[0], pane: pane).background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, scheme),
+                write(SettingsView(model: settings, pane: pane).background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, scheme),
                       to: (path as NSString).deletingPathExtension + "-\(pane.rawValue.lowercased())-\(scheme == .dark ? "dark" : "light").png")
             }
         }
@@ -350,11 +383,12 @@ enum Snapshot {
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case audio = "Audio", shortcuts = "Shortcuts", general = "General", advanced = "Advanced"
+    case audio = "Audio", presets = "Presets", shortcuts = "Shortcuts", general = "General", advanced = "Advanced"
     var id: Self { self }
     var icon: String {
         switch self {
         case .audio: "waveform"
+        case .presets: "square.stack"
         case .shortcuts: "keyboard"
         case .general: "switch.2"
         case .advanced: "gearshape.2"
@@ -391,8 +425,15 @@ struct SettingsView: View {
             .frame(width: 210).background(.primary.opacity(0.04))
             Divider()
             VStack(alignment: .leading, spacing: 0) {
-                HStack { Text(pane.rawValue).font(.title2.bold()); Spacer() }   // room for the preset menu (#2)
-                    .padding(.horizontal, 28).padding(.top, 16).frame(minHeight: 44)
+                HStack {
+                    Text(pane.rawValue).font(.title2.bold())
+                    Spacer()
+                    if pane == .audio {   // everything on this pane except the level meter saves into this preset
+                        Text("Editing preset").foregroundStyle(.secondary)
+                        PresetMenu(model: model, allowsUnavailable: true).fixedSize()
+                    }
+                }
+                .padding(.horizontal, 28).padding(.top, 16).frame(minHeight: 44)
                 detail
             }
         }
@@ -430,6 +471,8 @@ struct SettingsView: View {
                         .disabled(!model.highPassEnabled)
                     SliderRow(title: "Output trim", caption: "Final volume sent to apps", value: $model.outputGainDB, range: -12...12, step: 0.5) { String(format: "%+.1f dB", $0) }
                 }
+            case .presets:
+                PresetsPane(model: model)
             case .shortcuts:
                 Section {
                     LabeledContent("Noise removal on/off") { ShortcutRecorder(shortcut: $model.toggleShortcut, hotkeys: model.hotkeys) }
@@ -496,6 +539,61 @@ struct SettingsView: View {
     }
 }
 
+/// The Presets pane's sections. The list order is also the fallback order, so rows can be dragged.
+private struct PresetsPane: View {
+    @Bindable var model: AppModel
+    @State private var renaming = false
+    @State private var newName = ""
+
+    var body: some View {
+        Section {
+            ForEach(model.presets) { preset in
+                let active = preset.id == model.activePresetID
+                let mic = model.devices.first { $0.uid == preset.inputUID }?.name
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(preset.name)
+                        Text("\(mic ?? "Disconnected microphone") · \(preset.strength.label) · \(preset.engine.label)")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if active { Text("Active").fontWeight(.semibold).foregroundStyle(.tint) }
+                    else if mic == nil { Text("Mic not connected").foregroundStyle(.secondary) }
+                }
+                .contentShape(.rect)
+                .onTapGesture { model.activate(preset.id) }   // a tap, not a Button, so the row can still be dragged
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(active ? [.isButton, .isSelected] : .isButton)
+            }
+            .onMove { model.presets.move(fromOffsets: $0, toOffset: $1) }
+            HStack {
+                Button { model.addPreset() } label: { Image(systemName: "plus") }
+                    .accessibilityLabel("New preset from current settings")
+                Button { model.deletePreset(model.activePresetID) } label: { Image(systemName: "minus") }
+                    .accessibilityLabel("Delete the active preset").disabled(model.presets.count < 2)
+                Spacer()
+                Button("Rename") { newName = model.activePreset?.name ?? ""; renaming = true }
+                Button("Duplicate") { model.duplicatePreset(model.activePresetID) }
+            }
+        } header: {
+            Text("Saved audio setups. Click one to make it active; changes you make in Audio are saved to the active preset.")
+                .font(.body).fontWeight(.regular).foregroundStyle(.secondary)
+        } footer: {
+            Text("A preset stores the microphone, input channel, trims, high-pass filter, strength and engine. + saves the current settings as a new preset. Rename, Duplicate and − act on the active preset.")
+        }
+        .alert("Rename Preset", isPresented: $renaming) {
+            TextField("Name", text: $newName)
+            Button("Rename") { model.renamePreset(model.activePresetID, to: newName) }
+            Button("Cancel", role: .cancel) {}
+        }
+        Section {
+            Toggle("Switch presets when a microphone disconnects", isOn: $model.autoSwitchPresets)
+        } footer: {
+            Text("If the active preset's microphone stays unplugged for 3 seconds, Hush switches to the first preset in this list whose microphone is connected, and notifies you. It doesn't switch back by itself. Drag presets to change the order.")
+        }
+    }
+}
+
 /// Its own view so meter ticks redraw only this, not the whole settings window.
 private struct InputMeter: View {
     let model: AppModel
@@ -539,7 +637,9 @@ private struct StatusCard: View {
                 Circle().fill(on ? Color.green : Color.secondary).frame(width: 8, height: 8)
                 Text(on ? "Hush is on" : "Hush is off").fontWeight(.semibold)
             }
-            Text(model.statusLine).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            let status = model.statusLine   // "Desk · cleaning up iD2"
+            Text((model.activePreset.map { "\($0.name) · " } ?? "") + status.prefix(1).lowercased() + status.dropFirst())
+                .font(.caption).foregroundStyle(.secondary).lineLimit(2)
             Meter(rms: model.rms, peakHold: model.peakHold).accessibilityHidden(true)   // duplicates the Audio pane's meter
         }
         .frame(maxWidth: .infinity, alignment: .leading)
