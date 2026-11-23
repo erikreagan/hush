@@ -19,16 +19,16 @@ final class AppModel {
     let server = ControlServer()
 
     var devices: [AudioDevice] = []
-    var inputUID: String { didSet { defaults.set(inputUID, forKey: "inputUID"); if inputUID != oldValue, !applyingPreset { channel = 0; restart() }; storeActive() } }
-    var channel: Int { didSet { defaults.set(channel, forKey: "channel"); if channel != oldValue, !applyingPreset { restart() }; storeActive() } }
+    var inputUID: String { didSet { defaults.set(inputUID, forKey: "inputUID"); if inputUID != oldValue, !applyingPreset { channel = 0; restart() } } }
+    var channel: Int { didSet { defaults.set(channel, forKey: "channel"); if channel != oldValue, !applyingPreset { restart() } } }
     var enabled: Bool { didSet { defaults.set(enabled, forKey: "enabled"); pipeline.enabled = enabled && !comparing } }
     /// A/B: true while the hold-to-compare button is down (momentary bypass, never saved).
     var comparing = false { didSet { pipeline.enabled = enabled && !comparing } }
     // Settings (all persisted).
-    var highPassEnabled: Bool { didSet { defaults.set(highPassEnabled, forKey: "highPassEnabled"); applyProcessing(); storeActive() } }
-    var highPassHz: Double { didSet { defaults.set(highPassHz, forKey: "highPassHz"); applyProcessing(); storeActive() } }
-    var inputGainDB: Double { didSet { defaults.set(inputGainDB, forKey: "inputGainDB"); applyProcessing(); storeActive() } }
-    var outputGainDB: Double { didSet { defaults.set(outputGainDB, forKey: "outputGainDB"); applyProcessing(); storeActive() } }
+    var highPassEnabled: Bool { didSet { defaults.set(highPassEnabled, forKey: "highPassEnabled"); applyProcessing() } }
+    var highPassHz: Double { didSet { defaults.set(highPassHz, forKey: "highPassHz"); applyProcessing() } }
+    var inputGainDB: Double { didSet { defaults.set(inputGainDB, forKey: "inputGainDB"); applyProcessing() } }
+    var outputGainDB: Double { didSet { defaults.set(outputGainDB, forKey: "outputGainDB"); applyProcessing() } }
     var claimDefaultOnLaunch: Bool { didSet { defaults.set(claimDefaultOnLaunch, forKey: "claimDefaultOnLaunch") } }
     var restoreDefaultOnQuit: Bool { didSet { defaults.set(restoreDefaultOnQuit, forKey: "restoreDefaultOnQuit") } }
     var port: Int { didSet { defaults.set(port, forKey: "port") } }
@@ -53,13 +53,17 @@ final class AppModel {
     var monitorName = ""
     var monitorError: String?
 
-    // Presets: named snapshots of the settings whose observers call storeActive() (mic, channel, trims, high-pass,
-    // strength, engine). Exactly one is active, and changing a stored setting saves straight into it — no Save button.
-    // The individual keys above stay the live values, so presets can never lose a working setup.
+    // Presets: saved snapshots of the mic, channel, trims, high-pass, strength and engine. Using one copies it into the
+    // live settings above; nothing ever writes back into a preset by itself. The preset "in use" is simply the one the
+    // live settings match — change any of them and there is none ("Manual") until a preset is used or updated.
     var presets: [Preset] = [] { didSet { savePresets() } }
-    var activePresetID: Preset.ID { didSet { savePresets() } }
+    /// The preset last used, updated or created: only breaks the tie when several presets hold the same settings.
+    private var lastPresetID: Preset.ID? { didSet { savePresets() } }
     var autoSwitchPresets: Bool { didSet { defaults.set(autoSwitchPresets, forKey: "autoSwitchPresets") } }
-    var activePreset: Preset? { presets.first { $0.id == activePresetID } }
+    var activePreset: Preset? {
+        let live = snapshot(id: UUID(), name: "")
+        return presets.first { $0.id == lastPresetID && $0.matches(live) } ?? presets.first { $0.matches(live) }
+    }
     private var applyingPreset = false
     /// True while the pipeline is running on the chosen mic; lets restart() tell "the mic just went away" from "still waiting".
     private var hadMic = false
@@ -76,8 +80,8 @@ final class AppModel {
     var testResult: String?
     var testFiles: [URL] = []
     var muted = false { didSet { pipeline.muted = muted } }
-    var strength: Strength { didSet { defaults.set(strength.rawValue, forKey: "strength"); applyStrength(); storeActive() } }
-    var engine: EngineID { didSet { defaults.set(engine.rawValue, forKey: "engine"); pipeline.engineID = engine; storeActive() } }
+    var strength: Strength { didSet { defaults.set(strength.rawValue, forKey: "strength"); applyStrength() } }
+    var engine: EngineID { didSet { defaults.set(engine.rawValue, forKey: "engine"); pipeline.engineID = engine } }
     var deepFilterAvailable = true
 
     var error: String?
@@ -104,7 +108,6 @@ final class AppModel {
     var selectedDevice: AudioDevice? { devices.first { $0.uid == inputUID } }
 
     init() {
-        activePresetID = UUID()
         autoSwitchPresets = defaults.object(forKey: "autoSwitchPresets") as? Bool ?? true
         inputUID = defaults.string(forKey: "inputUID") ?? ""
         channel = defaults.integer(forKey: "channel")
@@ -125,20 +128,11 @@ final class AppModel {
         wetDry = strength.wetDryPercent
         applyProcessing()
 
-        // Presets. First launch with none saved (an upgrade, or a new install): today's settings become "Default".
-        // The live settings loaded above win; the active preset is brought in line with them.
-        if !Self.isSnapshot, let saved = defaults.data(forKey: "presets").flatMap({ try? JSONDecoder().decode([Preset].self, from: $0) }) {
-            presets = saved
+        // Presets. None saved (an upgrade, or a new install) simply means Manual: the settings above carry on as they were.
+        if !Self.isSnapshot {
+            presets = defaults.data(forKey: "presets").flatMap { try? JSONDecoder().decode([Preset].self, from: $0) } ?? []
+            lastPresetID = defaults.string(forKey: "activePresetID").flatMap(UUID.init)
         }
-        if let id = defaults.string(forKey: "activePresetID").flatMap(UUID.init), presets.contains(where: { $0.id == id }) {
-            activePresetID = id
-        } else if let first = presets.first {
-            activePresetID = first.id
-        } else {
-            presets = [snapshot(id: activePresetID, name: "Default")]
-        }
-        storeActive()
-        savePresets()
 
         if Self.isSnapshot { return }
 
@@ -244,14 +238,20 @@ final class AppModel {
     private func micLost() {
         micLostTask?.cancel()
         micLostTask = Task {
-            let fallback = { self.autoSwitchPresets ? self.presets.fallback(from: self.activePresetID, connected: Set(self.devices.map(\.uid))) : nil }
+            let fallback = { self.autoSwitchPresets ? self.presets.fallback(from: self.activePreset?.id, connected: Set(self.devices.map(\.uid))) : nil }
             if fallback() != nil { try? await Task.sleep(for: .seconds(3)) }
             guard !Task.isCancelled, self.selectedDevice == nil else { return }
             if let next = fallback() {
-                let from = self.activePreset?.name ?? "The active preset"
+                var kept = ""
+                if self.activePreset == nil {   // Manual: switching would lose these settings, so park them as a preset first
+                    let manual = self.snapshot(id: Preset.lastManualID, name: "Last manual settings")
+                    self.presets.removeAll { $0.id == manual.id }
+                    self.presets.append(manual)
+                    kept = " Your manual settings were kept as the preset “\(manual.name)”."
+                }
                 self.activate(next.id)
                 Self.notify("preset-switched", title: "Hush: switched to \(next.name)",
-                            body: "\(from)'s microphone was disconnected. Hush won't switch back by itself.")
+                            body: "The microphone was disconnected. Hush won't switch back by itself." + kept)
             } else {
                 Self.notify("mic-lost", title: "Hush: microphone disconnected", body: "Hush Mic is silent until your microphone is plugged back in.")
             }
@@ -272,13 +272,14 @@ final class AppModel {
 
     func isAvailable(_ preset: Preset) -> Bool { devices.contains { $0.uid == preset.inputUID } }
 
-    /// Applies all of a preset's settings at once. Audio is only interrupted if the mic or channel differs.
+    /// Uses a preset: copies all of its settings into the live ones at once, replacing whatever was there.
+    /// Audio is only interrupted if the mic or channel differs.
     func activate(_ id: Preset.ID) {
-        guard id != activePresetID, let preset = presets.first(where: { $0.id == id }) else { return }
+        guard let preset = presets.first(where: { $0.id == id }) else { return }
         micLostTask?.cancel()
         let micChanged = preset.inputUID != inputUID || preset.channel != channel
         applyingPreset = true
-        activePresetID = id
+        lastPresetID = id
         (inputUID, channel) = (preset.inputUID, preset.channel)
         (inputGainDB, outputGainDB) = (preset.inputGainDB, preset.outputGainDB)
         (highPassEnabled, highPassHz) = (preset.highPassEnabled, preset.highPassHz)
@@ -290,11 +291,18 @@ final class AppModel {
         }
     }
 
-    /// New preset from the current settings. It becomes the active one (nothing audible changes), ready to be edited.
+    /// New preset from the current settings. Nothing audible changes; it is simply the one in use from now on.
     func addPreset() {
         let new = snapshot(id: UUID(), name: "New Preset")
         presets.append(new)
-        activePresetID = new.id
+        lastPresetID = new.id
+    }
+
+    /// Overwrites a preset with the current settings — the only way a preset's contents ever change.
+    func updatePreset(_ id: Preset.ID) {
+        guard let index = presets.firstIndex(where: { $0.id == id }) else { return }
+        presets[index] = snapshot(id: id, name: presets[index].name)
+        lastPresetID = id
     }
 
     func duplicatePreset(_ id: Preset.ID) {
@@ -310,19 +318,8 @@ final class AppModel {
         presets[index].name = name
     }
 
-    /// There is always at least one preset. Deleting the active one activates its neighbour first.
-    func deletePreset(_ id: Preset.ID) {
-        guard presets.count > 1, let index = presets.firstIndex(where: { $0.id == id }) else { return }
-        if id == activePresetID { activate(presets[index + 1 < presets.count ? index + 1 : index - 1].id) }
-        presets.remove(at: index)
-    }
-
-    /// Copies the live settings into the active preset. Called by every preset-stored setting's observer.
-    private func storeActive() {
-        guard !applyingPreset, let index = presets.firstIndex(where: { $0.id == activePresetID }) else { return }
-        let current = snapshot(id: activePresetID, name: presets[index].name)
-        if presets[index] != current { presets[index] = current }
-    }
+    /// Deleting the preset in use changes nothing audible: the settings stay, and Hush is in Manual.
+    func deletePreset(_ id: Preset.ID) { presets.removeAll { $0.id == id } }
 
     private func snapshot(id: Preset.ID, name: String) -> Preset {
         Preset(id: id, name: name, inputUID: inputUID, channel: channel, inputGainDB: inputGainDB, highPassEnabled: highPassEnabled,
@@ -332,7 +329,7 @@ final class AppModel {
     private func savePresets() {
         if Self.isSnapshot { return }
         defaults.set(try? JSONEncoder().encode(presets), forKey: "presets")
-        defaults.set(activePresetID.uuidString, forKey: "activePresetID")
+        defaults.set(lastPresetID?.uuidString, forKey: "activePresetID")
     }
 
     func recordTest(seconds: Double = 30) {

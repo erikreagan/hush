@@ -110,4 +110,14 @@ import Testing
     #expect(presets.next(after: desk.id, connected: ["iD2"]) == nil)
     #expect([desk].next(after: desk.id, connected: ["iD2"]) == nil)
     #expect([Preset]().next(after: desk.id, connected: ["iD2"]) == nil)
+
+    // Manual (no preset in use): the first preset whose mic is connected, for both rules.
+    #expect(presets.fallback(from: nil, connected: ["usb", "builtin"]) == travel)
+    #expect(presets.next(after: nil, connected: ["builtin"]) == laptop)
+
+    // "In use" means same settings, whatever the name; any one differing setting means Manual.
+    var tweaked = desk
+    #expect(desk.matches(Preset(name: "Anything", inputUID: "iD2")))
+    tweaked.inputGainDB = 0.5
+    #expect(!desk.matches(tweaked))
 }
