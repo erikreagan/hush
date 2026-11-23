@@ -287,12 +287,12 @@ State is pushed on every change and immediately on subscribe. `setPreset` answer
 
 | Action | Controller | Behavior | Display |
 |---|---|---|---|
-| **Noise Removal** | Key | Press = toggle | Two states: On (the app icon: white disc with dark bars on the navy gradient) / Off (outlined grey disc on dark). Reflects state pushed from app, not just local presses |
-| **Strength** | Key | Press = cycle Light→Medium→Max. Property Inspector option: "Set specific preset" instead of cycle | Three rising steps with the preset name; navy background with white steps when that preset is active, dark and dim otherwise |
-| **Preset** | Key | Press = next preset whose mic is connected. PI option: a preset name, and the key then always selects that preset (alert if it doesn't exist or its mic is unplugged) | Stacked cards with a name: without a PI name, the preset in use (or "Manual"), navy when a preset is in use; with one, that name, navy when it is the preset in use, dimmer when unavailable |
+| **Noise Removal** | Key | Press = toggle | Two states: On (the app icon: white disc with dark bars on the plum gradient) / Off (outlined grey disc on dark). Reflects state pushed from app, not just local presses |
+| **Strength** | Key | Press = cycle Light→Medium→Max. Property Inspector option: "Set specific preset" instead of cycle | Three rising steps with the preset name; plum background with white steps when that preset is active, dark and dim otherwise |
+| **Preset** | Key | Press = next preset whose mic is connected. PI option: a preset name, and the key then always selects that preset (alert if it doesn't exist or its mic is unplugged) | Stacked cards with a name: without a PI name, the preset in use (or "Manual"), plum when a preset is in use; with one, that name, plum when it is the preset in use, dimmer when unavailable |
 | **Mute** | Key | Press = toggle mute. PI option: push-to-talk mode (mute released while held) | Microphone; slashed on red when muted |
 | **Level Meter** | Key | Press = toggle noise removal (optional, configurable) | Live vertical meter rendered as SVG data URL via `setImage`, ~10 updates/sec max |
-| **Hush Dial** | Dial (Stream Deck +) | Rotate = cycle strength; press = toggle noise removal; touch = mute | Touch strip layout with level bar + engine/preset text; icon is the disc with no background square (always a filled disc: navy with white bars when on, grey with dark bars when off, red with a white slash when muted) |
+| **Hush Dial** | Dial (Stream Deck +) | Rotate = cycle strength; press = toggle noise removal; touch = mute | Touch strip layout with level bar + engine/preset text; icon is the disc with no background square (always a filled disc: plum with white bars when on, grey with dark bars when off, red with a white slash when muted) |
 
 - Use `showAlert()` when a command fails (e.g., app offline).
 - Throttle meter image updates to ≤ 10/sec per key to avoid flooding the Stream Deck app; only send meter updates while a meter action is visible (`willAppear`/`willDisappear`).

@@ -9,14 +9,14 @@ export type HushState = {
     presets?: PresetInfo[];
 };
 
-// The palette follows the app icon (scripts/make-icon.swift): navy gradient, white disc, dark navy bars.
-export const RED = "#FF453A", DIM = "#636366", DARK = "#1C1C1E", WHITE = "#FFFFFF", INK = "#13224B";
-export const NAVY = "url(#navy)";   // the gradient below, usable as any face's background
+// The palette follows the app icon (scripts/make-icon.swift): plum gradient, white disc, dark plum bars.
+export const RED = "#FF453A", DIM = "#636366", DARK = "#1C1C1E", WHITE = "#FFFFFF", INK = "#241B30";
+export const PLUM = "url(#plum)";   // the gradient below, usable as any face's background
 
 export const svg = (background: string, body: string) =>
     "data:image/svg+xml;charset=utf8," + encodeURIComponent(
         `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">` +
-        `<defs><linearGradient id="navy" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2B4686"/><stop offset="1" stop-color="#0F1B3D"/></linearGradient></defs>` +
+        `<defs><linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5C4675"/><stop offset="1" stop-color="#241B30"/></linearGradient></defs>` +
         `<rect width="144" height="144" fill="${background}"/>${body}</svg>`);
 
 const caption = (text: string, color: string) =>
@@ -66,14 +66,14 @@ export function meterFace(rms: number, peak: number, live: boolean): string {
 export const OFFLINE = svg(DARK, disc("#48484A", "#48484A", { outlined: true }) + caption("Offline", DIM));
 
 export function noiseFace(state: HushState): string {
-    return state.enabled ? svg(NAVY, disc(WHITE, INK) + caption("On", WHITE)) : svg(DARK, disc(DIM, DIM, { outlined: true }) + caption("Off", DIM));
+    return state.enabled ? svg(PLUM, disc(WHITE, INK) + caption("On", WHITE)) : svg(DARK, disc(DIM, DIM, { outlined: true }) + caption("Off", DIM));
 }
 export function muteFace(state: HushState): string {
     return state.muted ? svg(RED, mic(WHITE, RED) + caption("Muted", WHITE)) : svg(DARK, mic(WHITE) + caption("Live", "#AEAEB2"));
 }
 export function strengthFace(state: HushState, fixed?: Strength): string {
     const shown = fixed ?? state.strength, active = state.enabled && shown === state.strength;
-    return active ? svg(NAVY, steps(STRENGTHS.indexOf(shown), WHITE, "#FFFFFF40") + caption(LABEL[shown], WHITE))
+    return active ? svg(PLUM, steps(STRENGTHS.indexOf(shown), WHITE, "#FFFFFF40") + caption(LABEL[shown], WHITE))
         : svg(DARK, steps(STRENGTHS.indexOf(shown), DIM, "#3A3A3C") + caption(LABEL[shown], DIM));
 }
 /** `fixed` is the preset name typed into the key's settings; without it the key shows whichever preset is in use ("Manual" if none). */
@@ -83,14 +83,14 @@ export function presetFace(state: HushState, fixed?: string): string {
     const lit = fixed ? !!state.preset && same(state.preset.name, fixed) : !!state.preset;
     const missing = fixed ? !known || known.available === false : false;   // no such preset, or its mic is unplugged
     const text = label(fixed ?? state.preset?.name ?? "Manual");
-    return lit ? svg(NAVY, stack(WHITE, "#FFFFFF60") + caption(text, WHITE))
+    return lit ? svg(PLUM, stack(WHITE, "#FFFFFF60") + caption(text, WHITE))
         : svg(DARK, stack(missing ? "#3A3A3C" : DIM, "#3A3A3C") + caption(text, DIM));
 }
-/** The dial's touch-strip icon: no caption and no background square, so a filled disc carries the colour: navy on, grey off, red muted. */
+/** The dial's touch-strip icon: no caption and no background square, so a filled disc carries the colour: plum on, grey off, red muted. */
 export function dialIcon(state: HushState): string {
     const r = 62, gap = r * 0.58, reach = r * 0.86;   // the gap stays inside the disc; the slash pokes out past it
     if (state.muted) return svg("none", disc(RED, WHITE, {}, 72, 72, r) +
         `<path d="M${72 - gap} ${72 - gap}L${72 + gap} ${72 + gap}" stroke="${RED}" stroke-width="17" stroke-linecap="round"/>` +
         `<path d="M${72 - reach} ${72 - reach}L${72 + reach} ${72 + reach}" stroke="${WHITE}" stroke-width="7" stroke-linecap="round"/>`);
-    return svg("none", state.enabled ? disc(NAVY, WHITE, {}, 72, 72, r) : disc(DIM, DARK, {}, 72, 72, r));
+    return svg("none", state.enabled ? disc(PLUM, WHITE, {}, 72, 72, r) : disc(DIM, DARK, {}, 72, 72, r));
 }
