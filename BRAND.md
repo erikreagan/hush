@@ -101,9 +101,8 @@ icon, the disc stands alone with no tile behind it.
 - Don't recolour the disc outside the palette, add effects, rotate it, or redraw the bars at other
   heights.
 
-**Open task:** the app icon, menu bar icons and Stream Deck icons are still navy
-(`#2B4686` to `#0F1B3D`, set in `scripts/make-icon.swift`). Erik chose to recolour them to the Dusk
-tile gradient above. That is app work, separate from the site.
+The app icon and Stream Deck icons use the tile gradient above (recoloured from navy in pull request
+#18). The colours are set in `scripts/make-icon.swift` and `StreamDeck/src/faces.ts`.
 
 ## 6. Shape
 
