@@ -36,6 +36,8 @@ scripts/build-app.sh           # builds build/Hush.app (builds DeepFilterNet on 
 open build/Hush.app
 ```
 
+The app icon is regenerated with `swift scripts/make-icon.swift`.
+
 Hush asks for microphone access on first launch. To remove the virtual microphone, run
 `scripts/uninstall-driver.sh`.
 
