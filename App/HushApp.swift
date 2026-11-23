@@ -388,7 +388,7 @@ enum Snapshot {
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case audio = "Audio", presets = "Presets", shortcuts = "Shortcuts", general = "General", advanced = "Advanced"
+    case audio = "Audio", presets = "Presets", shortcuts = "Shortcuts", general = "General", advanced = "Advanced", about = "About"
     var id: Self { self }
     var icon: String {
         switch self {
@@ -397,6 +397,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .shortcuts: "keyboard"
         case .general: "switch.2"
         case .advanced: "gearshape.2"
+        case .about: "info.circle"
         }
     }
 }
@@ -498,6 +499,18 @@ struct SettingsView: View {
                     Toggle("Make Hush Mic the default input when Hush starts", isOn: $model.claimDefaultOnLaunch)
                     Toggle("Restore the previous default input when Hush quits", isOn: $model.restoreDefaultOnQuit)
                 } footer: { if let problem = model.loginItemError { Text(problem).foregroundStyle(.red) } }
+            case .about:
+                Section {
+                    HStack(spacing: 14) {
+                        Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64).accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Hush").font(.title3.bold())
+                            Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–")").foregroundStyle(.secondary)
+                        }
+                    }
+                    Text("Hush removes background noise from your microphone before any app hears it, and feeds the clean audio to a virtual microphone called Hush Mic.")
+                    Link("hush.erikreagan.com", destination: URL(string: "https://hush.erikreagan.com")!)
+                }
             case .advanced:
                 Section {
                     Toggle("Listen", isOn: $model.listening).disabled(model.error != nil)
