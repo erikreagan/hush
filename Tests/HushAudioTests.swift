@@ -89,3 +89,35 @@ import Testing
     print("DeepFilterNet reduction on white noise: \(reductionDB) dB, latency \(engine.latencyFrames) frames")
     #expect(reductionDB > 12)
 }
+
+@Test func presetFallbackAndNextFollowListOrderAndSkipMissingMics() {
+    let desk = Preset(name: "Desk", inputUID: "iD2"), travel = Preset(name: "Travel", inputUID: "usb"), laptop = Preset(name: "Laptop", inputUID: "builtin")
+    let presets = [desk, travel, laptop]
+
+    // Desk's mic is unplugged: Travel is next in the list but its mic is missing too, so Laptop is picked.
+    #expect(presets.fallback(from: desk.id, connected: ["builtin"]) == laptop)
+    // List order decides when several are connected.
+    #expect(presets.fallback(from: desk.id, connected: ["usb", "builtin"]) == travel)
+    // Never "falls back" to the preset that just lost its mic, and stays put when nothing else is connected.
+    #expect(presets.fallback(from: desk.id, connected: ["iD2"]) == nil)
+    #expect(presets.fallback(from: desk.id, connected: []) == nil)
+    // Two presets on the same mic: the other one is no help when that mic goes.
+    #expect([desk, Preset(name: "Desk loud", inputUID: "iD2")].fallback(from: desk.id, connected: []) == nil)
+
+    // Next preset: forwards, skipping missing mics, wrapping at the end.
+    #expect(presets.next(after: desk.id, connected: ["iD2", "builtin"]) == laptop)
+    #expect(presets.next(after: laptop.id, connected: ["iD2", "builtin"]) == desk)
+    #expect(presets.next(after: desk.id, connected: ["iD2"]) == nil)
+    #expect([desk].next(after: desk.id, connected: ["iD2"]) == nil)
+    #expect([Preset]().next(after: desk.id, connected: ["iD2"]) == nil)
+
+    // Manual (no preset in use): the first preset whose mic is connected, for both rules.
+    #expect(presets.fallback(from: nil, connected: ["usb", "builtin"]) == travel)
+    #expect(presets.next(after: nil, connected: ["builtin"]) == laptop)
+
+    // "In use" means same settings, whatever the name; any one differing setting means Manual.
+    var tweaked = desk
+    #expect(desk.matches(Preset(name: "Anything", inputUID: "iD2")))
+    tweaked.inputGainDB = 0.5
+    #expect(!desk.matches(tweaked))
+}

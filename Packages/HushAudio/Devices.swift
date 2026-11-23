@@ -15,6 +15,9 @@ public struct AudioDevice: Identifiable, Hashable, Sendable {
     public let uid: String
     public let name: String
     public let inputChannels: Int
+    public init(id: AudioDeviceID, uid: String, name: String, inputChannels: Int) {
+        (self.id, self.uid, self.name, self.inputChannels) = (id, uid, name, inputChannels)
+    }
 }
 
 /// Thin Core Audio property helpers.

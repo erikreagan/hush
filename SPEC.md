@@ -199,7 +199,7 @@ Pass-through (with HPF and gain still applied). Not a separate engine in the UI 
 - Error (mic missing / driver missing / app can't open device) — `exclamationmark.triangle`
 
 **Popover as built** (300 pt wide, styled after the system's Control Center panels; top to bottom):
-1. Header: "Hush" with a one-line status of what apps are hearing ("Cleaning up <mic>", "Off — raw <mic>", "Muted — apps hear silence"), and the master **Noise Removal** switch on the right.
+1. Header: "Hush" with a one-line status of what apps are hearing ("Cleaning up <mic>", "Off — raw <mic>", "Muted — apps hear silence"), and the master **Noise Removal** switch on the right. Directly below the header: the **Preset** menu (the preset in use, or "Manual"; presets whose mic isn't connected are greyed out and can't be picked here — see Presets below).
 2. Error banner (red tint, Retry button) — only when something is wrong.
 3. Live level meter (post-processing) with peak-hold tick; green through the speaking range, yellow then red near clipping.
 4. **Strength:** full-width custom segments **Light · Medium · Max**; the selected one is filled with the accent colour. (Custom because the system segmented control won't stretch to the panel width.)
@@ -213,6 +213,17 @@ Below the Mute and Compare tiles is a full-width **Listen** tile: it plays what 
 
 **Settings window:**
 Built: Input, Processing (engine choice Apple · DeepFilterNet, hidden if DeepFilterNet failed to load; high-pass + output trim), System, Stream Deck (port, client count), and Diagnostics (delay, drift, under/overruns, engine parameter dump, and the 30-second test recorder with "Show Last Test in Finder"). Also built: Listen (on/off toggle + output picker) and Shortcuts (three recorders). Not built: the DFN options, per-engine custom strength, and CPU %.
+
+**Presets** (built 2026-11-23, issue #2). A preset is a saved, named snapshot of: microphone, input channel, input trim, high-pass (on/off + cutoff), output trim, strength, engine. Nothing else is part of a preset (Listen, launch and default-input behaviour, shortcuts, control port, mute, the on/off switch).
+- Using a preset copies it into the live settings, replacing them. Nothing writes back into a preset by itself: change a setting afterwards and no preset is in use — Hush shows **Manual** — until a preset is used again or updated. The preset "in use" is derived: it is the one the live settings match (the last one used wins a tie between identical presets).
+- A preset's contents change only through **Update with Current Settings**. **New Preset from Current Settings** saves the live settings as a new one.
+- Storage: `presets` (JSON array) in the app's defaults, plus `activePresetID` (the last preset used; only a tie-breaker). The individual keys (`inputUID`, `strength`, …) are the live settings, exactly as before presets. No presets saved (upgrade or new install) just means Manual.
+- Using a preset restarts the pipeline only if the mic or channel differs.
+- Settings → Presets (second in the sidebar): each row shows the name, mic · strength · engine, "Mic not connected" when relevant, and either "Active" or a **Use** button, plus a ⋯ menu (Update with Current Settings, Rename…, Duplicate, Delete). Below the list: New Preset from Current Settings. Rows drag to reorder. Then the "Switch presets when a microphone disconnects" switch (default on). The Audio pane has a Preset menu beside its title; the sidebar status card names the preset in use or says Manual.
+- A preset whose mic isn't connected can be used from Settings (Hush then waits for the mic, as it always has) but not from the popover.
+- Automatic switching, one direction only: see Edge cases (§13). List order is the fallback order.
+- The preset type, `matches`, and the two selection rules (`fallback`, `next`) live in `Packages/HushAudio/Presets.swift` so `swift test` covers them.
+- Not built yet (second half of #2): the "Next preset" shortcut, the `setPreset` / `cyclePreset` socket commands, and the Stream Deck action.
 
 - *Input:* device picker (default: Audient iD2), channel picker (default: 1), input gain trim
 - *Processing:* HPF on/off + frequency slider; per-engine custom strength; DFN low-latency model toggle; DFN post-filter beta
@@ -366,6 +377,7 @@ Build in this order. Each milestone should be demoable before moving on.
 - Interface sample rate ≠ 48 kHz → handled by the drift-correcting resampler (§4.2); never force-change the mic's sample rate. A mid-session sample-rate change on the mic is not handled yet (M3, with hot-plug).
 - Another app takes exclusive ("hog mode") access to the iD2 → show error state; recover when released.
 - Mac sleep/wake → rebuild audio units on wake if needed; no stuck silence.
+- Mic in use disappears while Hush is running (unplug, or gone after wake) → Hush Mic goes silent at once. If automatic preset switching is on and another preset's mic is connected, Hush waits 3 seconds; if the mic is back by then nothing changes, otherwise it switches to the first such preset in list order and posts "Hush: switched to <preset>". If Hush was in Manual, the settings being replaced are first saved as the preset "Last manual settings" (one slot, overwritten each time). It never switches back by itself. With no such preset, or with the switch off, it waits for the mic and posts "microphone disconnected", as before presets. A mic that is already missing at launch, or a preset used from Settings while its mic is away, is waited for and never triggers a switch.
 - Default-input restore on quit should only restore if Hush Mic is still the default (don't stomp a manual change).
 
 ---
