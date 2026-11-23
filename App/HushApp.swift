@@ -314,7 +314,7 @@ enum Snapshot {
         for pane in SettingsPane.allCases {
             for scheme in [ColorScheme.light, .dark] {
                 write(SettingsView(model: states[0], pane: pane).background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, scheme),
-                      to: path.replacingOccurrences(of: ".png", with: "-\(pane.rawValue.lowercased())-\(scheme == .dark ? "dark" : "light").png"))
+                      to: (path as NSString).deletingPathExtension + "-\(pane.rawValue.lowercased())-\(scheme == .dark ? "dark" : "light").png")
             }
         }
         write(VStack(spacing: 0) { row(.light); row(.dark) }, to: path)
@@ -386,11 +386,7 @@ struct SettingsView: View {
                             ForEach(0..<device.inputChannels, id: \.self) { Text("\($0 + 1)").tag($0) }
                         }
                     }
-                    VStack(spacing: 4) {
-                        Meter(rms: model.rms, peakHold: model.peakHold, height: 10)
-                        HStack { Text("−60"); Spacer(); Text("−40"); Spacer(); Text("−20"); Spacer(); Text("0 dB") }
-                            .font(.caption2).monospacedDigit().foregroundStyle(.secondary)
-                    }
+                    InputMeter(model: model)
                     SliderRow(title: "Input trim", value: $model.inputGainDB, range: -12...12, step: 0.5) { String(format: "%+.1f dB", $0) }
                 } header: { Text("Input") } footer: { Text("Speak normally and adjust trim until the level sits in the green.") }
                 Section("Processing") {
@@ -450,6 +446,19 @@ struct SettingsView: View {
     }
 }
 
+/// Its own view so meter ticks redraw only this, not the whole settings window.
+private struct InputMeter: View {
+    let model: AppModel
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Meter(rms: model.rms, peakHold: model.peakHold, height: 10)
+            HStack { Text("−60"); Spacer(); Text("−40"); Spacer(); Text("−20"); Spacer(); Text("0 dB") }
+                .font(.caption2).monospacedDigit().foregroundStyle(.secondary)
+        }
+    }
+}
+
 /// A labelled slider with its current value to the right.
 private struct SliderRow: View {
     let title: String
@@ -476,11 +485,12 @@ private struct StatusCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                Circle().fill(model.error == nil && model.enabled ? Color.green : Color.secondary).frame(width: 8, height: 8)
-                Text(model.enabled ? "Hush is on" : "Hush is off").fontWeight(.semibold)
+                let on = model.error == nil && model.enabled
+                Circle().fill(on ? Color.green : Color.secondary).frame(width: 8, height: 8)
+                Text(on ? "Hush is on" : "Hush is off").fontWeight(.semibold)
             }
             Text(model.statusLine).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-            Meter(rms: model.rms, peakHold: model.peakHold)
+            Meter(rms: model.rms, peakHold: model.peakHold).accessibilityHidden(true)   // duplicates the Audio pane's meter
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
