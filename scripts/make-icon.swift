@@ -1,4 +1,5 @@
-// Draws App/AppIcon.icns. Run: swift scripts/make-icon.swift [--preview out.png]
+// Draws App/AppIcon.icns (commit the result). Run: swift scripts/make-icon.swift
+// Or write only a 1024 px preview: swift scripts/make-icon.swift --preview out.png
 import AppKit
 
 // Tunables. Geometry is in an 824-point tile (centre 412,412); the artwork is full-bleed on the 1024 canvas
@@ -53,6 +54,7 @@ func render(_ px: Int) -> Data {
 let args = CommandLine.arguments
 if let i = args.firstIndex(of: "--preview"), i + 1 < args.count {
     try render(1024).write(to: URL(fileURLWithPath: args[i + 1]))
+    exit(0)   // preview only: leave the committed .icns alone
 }
 let fm = FileManager.default
 let tmp = fm.temporaryDirectory.appendingPathComponent("AppIcon-\(getpid()).iconset")
@@ -66,4 +68,5 @@ let out = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLa
 let p = Process(); p.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
 p.arguments = ["-c", "icns", tmp.path, "-o", out.path]
 try p.run(); p.waitUntilExit()
+try? fm.removeItem(at: tmp)   // exit() skips the defer above
 exit(p.terminationStatus)
