@@ -23,7 +23,19 @@ struct MenuBarIcon: View {
     let model: AppModel
 
     var body: some View {
-        if model.muted && model.error == nil { Image(nsImage: Self.muted) } else { Image(systemName: model.icon) }
+        if model.error != nil {
+            Image(systemName: "exclamationmark.triangle")
+        } else {
+            // All three states are NSImages of one size: mixing in Image(systemName:) made the menu bar item change width on mute.
+            Image(nsImage: model.muted ? Self.muted : model.enabled ? Self.on : Self.off)
+        }
+    }
+
+    static let on = symbol("waveform.circle.fill"), off = symbol("waveform.circle")
+    static func symbol(_ name: String) -> NSImage {
+        let image = NSImage(systemSymbolName: name, accessibilityDescription: "Hush")!
+        image.isTemplate = true
+        return image
     }
 
     /// waveform.circle.fill with a slash: SF Symbols has no slashed variant. A template image, so the menu bar tints it.
