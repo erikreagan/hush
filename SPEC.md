@@ -262,7 +262,9 @@ State is pushed on every change and immediately on subscribe. The same command l
 ## 9. Stream Deck plugin
 
 - Plugin UUID: `com.erikreagan.hush`
-- Built with `@elgato/streamdeck` v2 + Stream Deck CLI (`streamdeck create`), TypeScript.
+- Built with `@elgato/streamdeck` v2 (2.1.2), TypeScript, bundled with esbuild into `bin/plugin.js`. Scaffolded by hand rather than with `streamdeck create` (that wizard is interactive). Project lives in `StreamDeck/`: `npm run build`, `npm run validate`, `npm run link` (once, then restart the Stream Deck app so it discovers the plugin), `npm run restart` after each rebuild.
+- Source is two files: `src/plugin.ts` (connection + actions) and `src/faces.ts` (key artwork, drawn as SVG from Hush's state — there are no per-state image files).
+- As built: the dial uses Stream Deck's built-in `$B1` layout (title, icon, value text, level bar); rotating steps the strength up or down and stops at the ends rather than wrapping; reconnect backoff is 0.5 s doubling to 4 s; the meter is redrawn at most 10×/s and only for keys on screen.
 - Maintains one WebSocket connection to Hush; auto-reconnects with backoff. When Hush isn't running, all keys show a dimmed "Hush offline" image.
 
 ### 9.1 Actions
@@ -297,9 +299,7 @@ hush/
 ├── Engines/deepfilter/DeepFilterNet/   # DeepFilterNet upstream (submodule, unmodified)
 ├── Packages/CDeepFilter/     # C header for libDF, so Swift can call it
 ├── Tools/hush-cli/           # Offline WAV processor for engine A/B testing
-│
-│   Planned, not created yet:
-└── StreamDeck/com.erikreagan.hush.sdPlugin/  # TS plugin (M6)
+└── StreamDeck/               # Stream Deck plugin: src/, package.json, com.erikreagan.hush.sdPlugin/
 ```
 
 **`hush-cli`:** `hush-cli process --engine apple|deepFilter --strength medium in.wav out.wav`. Uses the exact same engine code as the app. Used to compare engines on recorded samples and for automated regression tests. Built (`swift build --product hush-cli`); input must be 48 kHz mono, which is what the test recorder writes.
@@ -310,7 +310,7 @@ hush/
 
 Build in this order. Each milestone should be demoable before moving on.
 
-**Status (2026-11-23):** Driver installed; the Audient iD2 has arrived and is the selected mic (48 kHz). M1, M2, and M5 are built; M3 is mostly built. Erik's at-the-Mac checks all passed: Compare, Mute, unplug/replug, and the Settings window. Listening result with the Apple engine: **Medium leaves typing clearly audible; Max removes it almost entirely but the voice sounds less natural — still acceptable for meetings.** Max is the working default for now, and this gap is the case for DeepFilterNet (M4). Measured on the Lewitt CONNECT 2 (44.1 kHz) before the iD2 arrived: ~76 ms added delay, room noise floor −56 → −72 dBFS on Medium, and a passed 30-minute soak (`node scripts/test-control.mjs 1800`): zero underruns and overruns, ~1% CPU, 38 MB memory, quiet room. **The soak has not been repeated on the iD2.** M4 (DeepFilterNet) is built and running live; Erik's listening comparison of the two engines is pending. M6, M7 not started.
+**Status (2026-11-23):** Driver installed; the Audient iD2 has arrived and is the selected mic (48 kHz). M1, M2, and M5 are built; M3 is mostly built. Erik's at-the-Mac checks all passed: Compare, Mute, unplug/replug, and the Settings window. Listening result with the Apple engine: **Medium leaves typing clearly audible; Max removes it almost entirely but the voice sounds less natural — still acceptable for meetings.** Max is the working default for now, and this gap is the case for DeepFilterNet (M4). Measured on the Lewitt CONNECT 2 (44.1 kHz) before the iD2 arrived: ~76 ms added delay, room noise floor −56 → −72 dBFS on Medium, and a passed 30-minute soak (`node scripts/test-control.mjs 1800`): zero underruns and overruns, ~1% CPU, 38 MB memory, quiet room. **The soak has not been repeated on the iD2.** M4 (DeepFilterNet) is built and running live; Erik's listening comparison of the two engines is pending. M6 (Stream Deck plugin) is built and working on Erik's Stream Deck +. M7 not started.
 
 **M1 — Passthrough plumbing** *(built; acceptance pending)*
 - Driver builds and installs; "Hush Mic" appears in System Settings → Sound → Input.
@@ -341,8 +341,8 @@ Build in this order. Each milestone should be demoable before moving on.
 - WebSocket server per §8, shared command layer.
 - ✅ `websocat ws://127.0.0.1:47823` can toggle, mute, change preset/engine, and receives state + meter streams.
 
-**M6 — Stream Deck plugin**
-- All actions in §9.1.
+**M6 — Stream Deck plugin** *(built; confirmed working by Erik on the Stream Deck +, 2026-11-23)*
+- All five actions from §9.1 are built. The plugin validates (`npm run validate`), is linked into Stream Deck, loads, and holds a connection to Hush. Erik placed and used them on the hardware and approved the result; the specific timing checks below were not measured.
 - ✅ Changing state from the menu bar updates Stream Deck keys within 100 ms; quitting Hush shows "offline" on keys within 2 s; relaunching reconnects automatically.
 
 **M7 — Soak & polish**

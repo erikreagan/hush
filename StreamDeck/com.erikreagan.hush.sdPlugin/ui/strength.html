@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+	<head lang="en">
+		<title>Strength</title>
+		<meta charset="utf-8" />
+		<script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+	</head>
+	<body>
+		<sdpi-item label="On press">
+			<sdpi-select setting="mode" default="cycle">
+				<option value="cycle">Cycle Light → Medium → Max</option>
+				<option value="light">Set Light</option>
+				<option value="medium">Set Medium</option>
+				<option value="max">Set Max</option>
+			</sdpi-select>
+		</sdpi-item>
+		<!-- Shared by every Hush key (global setting). Only change it if you changed the port in Hush's Settings. -->
+		<sdpi-item label="Hush port">
+			<sdpi-textfield setting="port" global placeholder="47823"></sdpi-textfield>
+		</sdpi-item>
+	</body>
+</html>

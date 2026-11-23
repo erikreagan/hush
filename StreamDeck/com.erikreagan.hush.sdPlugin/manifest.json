@@ -1,0 +1,66 @@
+{
+	"Name": "Hush",
+	"Version": "0.1.0.0",
+	"Author": "Erik Reagan",
+	"Description": "Controls the Hush mic noise-removal app: toggle, strength, mute, and a live level meter.",
+	"Category": "Hush",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"Icon": "imgs/plugin/marketplace",
+	"CodePath": "bin/plugin.js",
+	"UUID": "com.erikreagan.hush",
+	"SDKVersion": 3,
+	"Software": { "MinimumVersion": "7.1" },
+	"OS": [{ "Platform": "mac", "MinimumVersion": "15" }],
+	"Nodejs": { "Version": "24", "Debug": "enabled" },
+	"Actions": [
+		{
+			"Name": "Noise Removal",
+			"UUID": "com.erikreagan.hush.noise-removal",
+			"Icon": "imgs/actions/noise-removal",
+			"Tooltip": "Turn Hush's noise removal on or off.",
+			"PropertyInspectorPath": "ui/connection.html",
+			"Controllers": ["Keypad"],
+			"States": [{ "Image": "imgs/actions/key", "ShowTitle": false }]
+		},
+		{
+			"Name": "Strength",
+			"UUID": "com.erikreagan.hush.strength",
+			"Icon": "imgs/actions/strength",
+			"Tooltip": "Cycle Light, Medium, Max, or jump to one preset.",
+			"PropertyInspectorPath": "ui/strength.html",
+			"Controllers": ["Keypad"],
+			"States": [{ "Image": "imgs/actions/key", "ShowTitle": false }]
+		},
+		{
+			"Name": "Mute",
+			"UUID": "com.erikreagan.hush.mute",
+			"Icon": "imgs/actions/mute",
+			"Tooltip": "Hard-mute Hush Mic, or hold to talk.",
+			"PropertyInspectorPath": "ui/mute.html",
+			"Controllers": ["Keypad"],
+			"States": [{ "Image": "imgs/actions/key", "ShowTitle": false }]
+		},
+		{
+			"Name": "Level Meter",
+			"UUID": "com.erikreagan.hush.meter",
+			"Icon": "imgs/actions/meter",
+			"Tooltip": "Live level of what apps hear from Hush Mic.",
+			"PropertyInspectorPath": "ui/meter.html",
+			"Controllers": ["Keypad"],
+			"States": [{ "Image": "imgs/actions/key", "ShowTitle": false }]
+		},
+		{
+			"Name": "Hush Dial",
+			"UUID": "com.erikreagan.hush.dial",
+			"Icon": "imgs/actions/noise-removal",
+			"Tooltip": "Rotate for strength, press to toggle noise removal, touch to mute.",
+			"PropertyInspectorPath": "ui/connection.html",
+			"Controllers": ["Encoder"],
+			"Encoder": {
+				"layout": "$B1",
+				"TriggerDescription": { "Rotate": "Strength", "Push": "Noise removal on/off", "Touch": "Mute" }
+			},
+			"States": [{ "Image": "imgs/actions/key", "ShowTitle": false }]
+		}
+	]
+}
