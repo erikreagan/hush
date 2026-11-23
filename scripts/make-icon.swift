@@ -5,9 +5,9 @@ import AppKit
 // Tunables. Geometry is in an 824-point tile (centre 412,412); the artwork is full-bleed on the 1024 canvas
 // (macOS applies its own mask), so the whole composition is scaled by `scale` about the centre.
 func hex(_ v: Int) -> NSColor { NSColor(red: CGFloat(v >> 16 & 255) / 255, green: CGFloat(v >> 8 & 255) / 255, blue: CGFloat(v & 255) / 255, alpha: 1) }
-let top = hex(0x2B4686), bottom = hex(0x0F1B3D)   // background gradient (full square, not scaled)
+let top = hex(0x5C4675), bottom = hex(0x241B30)   // background gradient (full square, not scaled)
 let discColor = NSColor.white, discRadius: CGFloat = 300
-let barColor = hex(0x13224B)
+let barColor = hex(0x241B30)
 let barHeights: [CGFloat] = [80, 180, 320, 130, 240, 110]   // left to right
 let barWidth: CGFloat = 40, barPitch: CGFloat = 64
 let scale: CGFloat = 1024 / 824
