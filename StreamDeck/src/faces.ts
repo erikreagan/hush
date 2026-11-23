@@ -2,7 +2,12 @@
 export type Strength = "light" | "medium" | "max";
 export const STRENGTHS: Strength[] = ["light", "medium", "max"];
 export const LABEL = { light: "Light", medium: "Medium", max: "Max" };
-export type HushState = { enabled: boolean; muted: boolean; strength: Strength; engine: "apple" | "deepFilter"; inputConnected: boolean };
+export type PresetInfo = { id: string; name: string; available?: boolean };
+export type HushState = {
+    enabled: boolean; muted: boolean; strength: Strength; engine: "apple" | "deepFilter"; inputConnected: boolean;
+    preset?: PresetInfo | null;   // the preset in use; null = Manual (absent on a Hush older than presets)
+    presets?: PresetInfo[];
+};
 
 // The palette follows the app icon (scripts/make-icon.swift): navy gradient, white disc, dark navy bars.
 export const RED = "#FF453A", DIM = "#636366", DARK = "#1C1C1E", WHITE = "#FFFFFF", INK = "#13224B";
@@ -38,6 +43,14 @@ const mic = (color: string, slashedOn?: string) =>
 const steps = (level: number, lit: string, unlit: string) => [22, 40, 58].map((height, i) =>
     `<rect x="${40 + i * 24}" y="${88 - height}" width="16" height="${height}" rx="5" fill="${i <= level ? lit : unlit}"/>`).join("");
 
+/** Three stacked cards: the front one filled, two peeking out behind. */
+const stack = (color: string, behind: string) =>
+    `<rect x="46" y="18" width="52" height="14" rx="5" fill="${behind}"/><rect x="38" y="34" width="68" height="14" rx="5" fill="${behind}"/>` +
+    `<rect x="30" y="50" width="84" height="42" rx="8" fill="${color}"/>`;
+
+/** Preset names are the user's text: escape them for SVG and keep them to what fits under the glyph. */
+const label = (text: string) => (text.length > 9 ? text.slice(0, 8) + "…" : text).replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+
 export const fraction = (dB: number) => Math.max(0, Math.min(1, (dB + 60) / 60));
 
 export function meterFace(rms: number, peak: number, live: boolean): string {
@@ -62,6 +75,16 @@ export function strengthFace(state: HushState, fixed?: Strength): string {
     const shown = fixed ?? state.strength, active = state.enabled && shown === state.strength;
     return active ? svg(NAVY, steps(STRENGTHS.indexOf(shown), WHITE, "#FFFFFF40") + caption(LABEL[shown], WHITE))
         : svg(DARK, steps(STRENGTHS.indexOf(shown), DIM, "#3A3A3C") + caption(LABEL[shown], DIM));
+}
+/** `fixed` is the preset name typed into the key's settings; without it the key shows whichever preset is in use ("Manual" if none). */
+export function presetFace(state: HushState, fixed?: string): string {
+    const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+    const known = fixed ? state.presets?.find((p) => same(p.name, fixed)) : undefined;
+    const lit = fixed ? !!state.preset && same(state.preset.name, fixed) : !!state.preset;
+    const missing = fixed ? !known || known.available === false : false;   // no such preset, or its mic is unplugged
+    const text = label(fixed ?? state.preset?.name ?? "Manual");
+    return lit ? svg(NAVY, stack(WHITE, "#FFFFFF60") + caption(text, WHITE))
+        : svg(DARK, stack(missing ? "#3A3A3C" : DIM, "#3A3A3C") + caption(text, DIM));
 }
 /** The dial's touch-strip icon: no caption and no background square, so a filled disc carries the colour: navy on, grey off, red muted. */
 export function dialIcon(state: HushState): string {

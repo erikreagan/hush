@@ -7,7 +7,7 @@ import streamDeck, {
 } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 
-import { LABEL, OFFLINE, STRENGTHS, dialIcon, fraction, meterFace, muteFace, noiseFace, strengthFace, type HushState, type Strength } from "./faces";
+import { LABEL, OFFLINE, STRENGTHS, dialIcon, fraction, meterFace, muteFace, noiseFace, presetFace, strengthFace, type HushState, type Strength } from "./faces";
 
 /** One auto-reconnecting connection to Hush. `state` is null while Hush isn't running. */
 const hush = {
@@ -96,6 +96,21 @@ class StrengthKey extends HushKey<StrengthSettings> {
     }
 }
 
+/** With a name: always selects that preset. Without: steps to the next preset whose mic is connected. */
+type PresetSettings = { name?: string };
+@action({ UUID: "com.erikreagan.hush.preset" })
+class PresetKey extends HushKey<PresetSettings> {
+    protected face(state: HushState, settings: PresetSettings) { return presetFace(state, settings.name?.trim() || undefined); }
+    override onKeyDown(ev: KeyDownEvent<PresetSettings>) {
+        const name = ev.payload.settings.name?.trim();
+        if (!name) return this.command(ev.action, "cyclePreset");
+        // Hush would refuse these too, but its error reply can't be tied to a key, so flash the alert here.
+        const preset = hush.state?.presets?.find((p) => p.name.toLowerCase() === name.toLowerCase());
+        if (hush.state && (!preset || preset.available === false)) return void ev.action.showAlert();
+        this.command(ev.action, "setPreset", name);
+    }
+}
+
 type MuteSettings = { pushToTalk?: boolean };
 @action({ UUID: "com.erikreagan.hush.mute" })
 class Mute extends HushKey<MuteSettings> {
@@ -146,7 +161,7 @@ class HushDial extends SingletonAction {
     override onTouchTap(ev: { action: DialAction }) { if (!hush.send("mute")) void ev.action.showAlert(); }
 }
 
-const keys = [new NoiseRemoval(), new StrengthKey(), new Mute()];
+const keys = [new NoiseRemoval(), new StrengthKey(), new Mute(), new PresetKey()];
 const meter = new Meter(), dial = new HushDial();
 for (const item of [...keys, meter, dial]) streamDeck.actions.registerAction(item);
 
