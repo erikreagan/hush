@@ -212,7 +212,7 @@ Below the Mute and Compare tiles is a full-width **Listen** tile: it plays what 
 `build/Hush.app/Contents/MacOS/Hush --snapshot out.png` renders the popover in several states, light and dark, to an image without starting audio or touching settings — use it to review UI changes.
 
 **Settings window:**
-Built: Input, Processing (engine choice Apple · DeepFilterNet, hidden if DeepFilterNet failed to load; high-pass + output trim), System, Stream Deck (port, client count), and Diagnostics (delay, drift, under/overruns, engine parameter dump, and the 30-second test recorder with "Show Last Test in Finder"). Also built: Listen (on/off toggle + output picker) and Shortcuts (three recorders). Not built: the DFN options, per-engine custom strength, and CPU %.
+Built: Input, Processing (engine choice Apple · DeepFilterNet, hidden if DeepFilterNet failed to load; high-pass + output trim), System, Stream Deck (port, client count), and Diagnostics (delay, drift, under/overruns, engine parameter dump, and the 30-second test recorder with "Show Last Test in Finder"). Also built: Listen (on/off toggle + output picker) and Shortcuts (four recorders: noise removal on/off, mute, next strength, next preset). Not built: the DFN options, per-engine custom strength, and CPU %.
 
 **Presets** (built 2026-11-23, issue #2). A preset is a saved, named snapshot of: microphone, input channel, input trim, high-pass (on/off + cutoff), output trim, strength, engine. Nothing else is part of a preset (Listen, launch and default-input behaviour, shortcuts, control port, mute, the on/off switch).
 - Using a preset copies it into the live settings, replacing them. Nothing writes back into a preset by itself: change a setting afterwards and no preset is in use — Hush shows **Manual** — until a preset is used again or updated. The preset "in use" is derived: it is the one the live settings match (the last one used wins a tie between identical presets).
@@ -223,7 +223,7 @@ Built: Input, Processing (engine choice Apple · DeepFilterNet, hidden if DeepFi
 - A preset whose mic isn't connected can be used from Settings (Hush then waits for the mic, as it always has) but not from the popover.
 - Automatic switching, one direction only: see Edge cases (§13). List order is the fallback order.
 - The preset type, `matches`, and the two selection rules (`fallback`, `next`) live in `Packages/HushAudio/Presets.swift` so `swift test` covers them.
-- Not built yet (second half of #2): the "Next preset" shortcut, the `setPreset` / `cyclePreset` socket commands, and the Stream Deck action.
+- Remote control: a "Next preset" global shortcut (Settings → Shortcuts), the `setPreset` / `cyclePreset` socket commands (§8.1) and the Stream Deck Preset key (§9.1). All three skip or refuse presets whose mic isn't connected. From Manual, "next" is the first preset whose mic is connected.
 
 - *Input:* device picker (default: Audient iD2), channel picker (default: 1), input gain trim
 - *Processing:* HPF on/off + frequency slider; per-engine custom strength; DFN low-latency model toggle; DFN post-filter beta
@@ -253,18 +253,22 @@ Hush runs a WebSocket server on `ws://127.0.0.1:47823` (configurable). Localhost
 { "type": "command", "action": "setStrength", "value": "light" | "medium" | "max" }
 { "type": "command", "action": "cycleStrength" }
 { "type": "command", "action": "setEngine", "value": "apple" | "deepFilter" }
+{ "type": "command", "action": "setPreset", "value": "<preset id or name>" }   // name: first match in list order, case-insensitive
+{ "type": "command", "action": "cyclePreset" }   // next preset whose mic is connected, wrapping
 { "type": "subscribe", "topics": ["state", "meter"] }
 ```
 
 **Hush → Client**
 ```json
 { "type": "state", "enabled": true, "muted": false, "strength": "medium",
-  "engine": "apple", "inputConnected": true, "driverInstalled": true }
+  "engine": "apple", "inputConnected": true, "driverInstalled": true,
+  "preset": { "id": "…", "name": "Desk" },        // the preset in use; null = Manual
+  "presets": [{ "id": "…", "name": "Desk", "available": true }] }   // available = its mic is connected
 { "type": "meter", "rms": -32.1, "peak": -18.4 }   // dBFS, ~15 Hz while subscribed
 { "type": "error", "message": "..." }
 ```
 
-State is pushed on every change and immediately on subscribe. The same command layer backs the menu bar UI, global hotkeys, and the socket — one source of truth.
+State is pushed on every change and immediately on subscribe. `setPreset` answers with an error for an unknown preset or one whose mic isn't connected; `cyclePreset` when there is no other preset to go to. Using a preset replaces the live settings (see Presets, §7). The same command layer backs the menu bar UI, global hotkeys, and the socket — one source of truth.
 
 **Nice-to-have:** a `hush://` URL scheme (`hush://toggle`, `hush://mute`) and App Intents for Shortcuts, reusing the same command layer.
 
@@ -284,6 +288,7 @@ State is pushed on every change and immediately on subscribe. The same command l
 |---|---|---|---|
 | **Noise Removal** | Key | Press = toggle | Two states: On (the app icon: white disc with dark bars on the navy gradient) / Off (outlined grey disc on dark). Reflects state pushed from app, not just local presses |
 | **Strength** | Key | Press = cycle Light→Medium→Max. Property Inspector option: "Set specific preset" instead of cycle | Three rising steps with the preset name; navy background with white steps when that preset is active, dark and dim otherwise |
+| **Preset** | Key | Press = next preset whose mic is connected. PI option: a preset name, and the key then always selects that preset (alert if it doesn't exist or its mic is unplugged) | Stacked cards with a name: without a PI name, the preset in use (or "Manual"), navy when a preset is in use; with one, that name, navy when it is the preset in use, dimmer when unavailable |
 | **Mute** | Key | Press = toggle mute. PI option: push-to-talk mode (mute released while held) | Microphone; slashed on red when muted |
 | **Level Meter** | Key | Press = toggle noise removal (optional, configurable) | Live vertical meter rendered as SVG data URL via `setImage`, ~10 updates/sec max |
 | **Hush Dial** | Dial (Stream Deck +) | Rotate = cycle strength; press = toggle noise removal; touch = mute | Touch strip layout with level bar + engine/preset text; icon is the disc with no background square (always a filled disc: navy with white bars when on, grey with dark bars when off, red with a white slash when muted) |

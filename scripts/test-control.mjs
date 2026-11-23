@@ -36,6 +36,27 @@ ws.send("not json"); await sleep(150);
 assert.equal(inbox.filter((m) => m.type === "error").length, 3, "bad input gets error replies");
 assert.ok(meters.length > 10, "meter stream flows at ~15 Hz");
 
+// Presets. Using one replaces the live settings, so only switch if a preset is in use to come back to:
+// from Manual there would be no way to restore what was there.
+assert.ok(Array.isArray(state.presets) && "preset" in state, "state lists the presets and the one in use");
+await command("setStrength", original.strength);
+await command("setEngine", original.engine);
+inbox.length = 0;
+await command("setPreset", "no such preset \u0000");
+await command("setPreset");
+assert.equal(inbox.filter((m) => m.type === "error").length, 2, "setPreset refuses an unknown or missing name");
+if (original.preset) {
+  const others = state.presets.filter((p) => p.available && p.id !== original.preset.id);
+  await command("cyclePreset"); await sleep(300);
+  if (others.length) assert.notEqual(state.preset?.id, original.preset.id, "cyclePreset moves to another preset");
+  await command("setPreset", original.preset.id); await sleep(300);
+  assert.equal(state.preset?.id, original.preset.id, "setPreset by id comes back");
+  await command("setPreset", original.preset.name.toUpperCase()); await sleep(300);
+  assert.equal(state.preset?.name, original.preset.name, "setPreset by name ignores case");
+} else {
+  console.log("in Manual: skipping preset switching (it would replace the live settings)");
+}
+
 await command("setEnabled", original.enabled);
 await command("setMuted", original.muted);
 await command("setStrength", original.strength);

@@ -74,6 +74,7 @@ final class AppModel {
     var toggleShortcut: Shortcut? { didSet { bindShortcut(1, toggleShortcut, key: "shortcut.toggle") { [weak self] in self?.enabled.toggle() } } }
     var muteShortcut: Shortcut? { didSet { bindShortcut(2, muteShortcut, key: "shortcut.mute") { [weak self] in self?.muted.toggle() } } }
     var cycleShortcut: Shortcut? { didSet { bindShortcut(3, cycleShortcut, key: "shortcut.cycle") { [weak self] in self?.cycleStrength() } } }
+    var presetShortcut: Shortcut? { didSet { bindShortcut(4, presetShortcut, key: "shortcut.preset") { [weak self] in self?.cyclePreset() } } }
     var shortcutError: String?
 
     var recordingTest = false
@@ -141,6 +142,7 @@ final class AppModel {
             toggleShortcut = savedShortcut("shortcut.toggle")
             muteShortcut = savedShortcut("shortcut.mute")
             cycleShortcut = savedShortcut("shortcut.cycle")
+            presetShortcut = savedShortcut("shortcut.preset")
         }
 
         // Quit (menu, logout, or `kill`): hand the default input back before we go silent.
@@ -291,6 +293,14 @@ final class AppModel {
         }
     }
 
+    /// "Next preset": on to the next one whose mic is connected, wrapping round. False if there is nowhere to go.
+    @discardableResult
+    func cyclePreset() -> Bool {
+        guard let next = presets.next(after: activePreset?.id, connected: Set(devices.map(\.uid))) else { return false }
+        activate(next.id)
+        return true
+    }
+
     /// New preset from the current settings. Nothing audible changes; it is simply the one in use from now on.
     func addPreset() {
         let new = snapshot(id: UUID(), name: "New Preset")
@@ -371,6 +381,16 @@ final class AppModel {
             guard let choice = (value as? String).flatMap(EngineID.init) else { return "setEngine needs apple or deepFilter" }
             guard choice == .apple || deepFilterAvailable else { return "DeepFilterNet isn't available" }
             engine = choice
+        case "setPreset":   // by id, or by name (first match in list order, ignoring case)
+            guard let wanted = value as? String,
+                  let preset = presets.first(where: { $0.id.uuidString == wanted })
+                    ?? presets.first(where: { $0.name.caseInsensitiveCompare(wanted) == .orderedSame }) else {
+                return "setPreset needs the name or id of a saved preset"
+            }
+            guard isAvailable(preset) else { return "\(preset.name)'s microphone isn't connected" }
+            activate(preset.id)
+        case "cyclePreset":
+            guard cyclePreset() else { return "No other preset with a connected microphone" }
         case "recordTest":   // not in the spec's list: lets tests and tools trigger the test recorder
             recordTest(seconds: value as? Double ?? 30)
         default: return "Unknown action \(action)"
@@ -383,6 +403,9 @@ final class AppModel {
         server.publish(topic: "state", [
             "enabled": enabled, "muted": muted, "strength": strength.rawValue, "engine": engine.rawValue,
             "inputConnected": error == nil, "driverInstalled": driverInstalled,
+            // The preset in use (null = Manual), and every saved preset with whether its mic is connected.
+            "preset": activePreset.map { ["id": $0.id.uuidString, "name": $0.name] as Any } ?? NSNull(),
+            "presets": presets.map { ["id": $0.id.uuidString, "name": $0.name, "available": isAvailable($0)] as [String: Any] },
         ], onlyIfChanged: true)
     }
 

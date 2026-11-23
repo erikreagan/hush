@@ -32,6 +32,15 @@
 			"States": [{ "Image": "imgs/actions/key", "ShowTitle": false }]
 		},
 		{
+			"Name": "Preset",
+			"UUID": "com.erikreagan.hush.preset",
+			"Icon": "imgs/actions/preset",
+			"Tooltip": "Step through your Hush presets, or jump to one by name.",
+			"PropertyInspectorPath": "ui/preset.html",
+			"Controllers": ["Keypad"],
+			"States": [{ "Image": "imgs/actions/key", "ShowTitle": false }]
+		},
+		{
 			"Name": "Mute",
 			"UUID": "com.erikreagan.hush.mute",
 			"Icon": "imgs/actions/mute",

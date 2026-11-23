@@ -483,6 +483,9 @@ struct SettingsView: View {
                     LabeledContent("Noise removal on/off") { ShortcutRecorder(shortcut: $model.toggleShortcut, hotkeys: model.hotkeys) }
                     LabeledContent("Mute") { ShortcutRecorder(shortcut: $model.muteShortcut, hotkeys: model.hotkeys) }
                     LabeledContent("Next strength") { ShortcutRecorder(shortcut: $model.cycleShortcut, hotkeys: model.hotkeys) }
+                    LabeledContent {
+                        ShortcutRecorder(shortcut: $model.presetShortcut, hotkeys: model.hotkeys)
+                    } label: { Text("Next preset"); Text("Skips presets whose microphone isn't connected") }
                 } footer: {
                     VStack(alignment: .leading, spacing: 4) {
                         if let problem = model.shortcutError { Text(problem).foregroundStyle(.red) }
