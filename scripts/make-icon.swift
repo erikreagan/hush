@@ -7,29 +7,16 @@ let bottom = NSColor(red: 0.09, green: 0.11, blue: 0.36, alpha: 1) // gradient b
 let barHeights: [CGFloat] = [540, 380, 250, 130]            // loud to quiet, left to right
 let barWidth: CGFloat = 112
 let barGap: CGFloat = 68
-let tile: CGFloat = 824, squircleN = 4.2                          // tile size, corner roundness (higher = squarer)
+let glyphScale: CGFloat = 1.24 // the glyph is sized for a 824 tile; the artwork is full-bleed so macOS applies its own mask
 
 func render(_ px: Int) -> Data {
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: px, pixelsHigh: px, bitsPerSample: 8,
         samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-    let t = NSAffineTransform(); t.scale(by: CGFloat(px) / 1024); t.concat()
-    let r = NSRect(x: (1024 - tile) / 2, y: (1024 - tile) / 2, width: tile, height: tile)
-    let path = NSBezierPath()
-    for i in 0...360 { // superellipse |x|^n + |y|^n = 1
-        let a = Double(i) * .pi / 180, c = cos(a), s = sin(a)
-        let p = NSPoint(x: r.midX + r.width / 2 * CGFloat(copysign(pow(abs(c), 2 / squircleN), c)),
-                        y: r.midY + r.height / 2 * CGFloat(copysign(pow(abs(s), 2 / squircleN), s)))
-        i == 0 ? path.move(to: p) : path.line(to: p)
-    }
-    path.close()
-    NSGraphicsContext.saveGraphicsState()
-    let sh = NSShadow(); sh.shadowOffset = NSSize(width: 0, height: -12); sh.shadowBlurRadius = 24
-    sh.shadowColor = NSColor(white: 0, alpha: 0.3); sh.set()
-    bottom.setFill(); path.fill()
-    NSGraphicsContext.restoreGraphicsState()
-    NSGradient(starting: top, ending: bottom)!.draw(in: path, angle: -90)
+    NSGradient(starting: top, ending: bottom)!.draw(in: NSRect(x: 0, y: 0, width: CGFloat(px), height: CGFloat(px)), angle: -90)
+    let t = NSAffineTransform(); t.translateX(by: CGFloat(px) / 2, yBy: CGFloat(px) / 2)
+    t.scale(by: CGFloat(px) / 1024 * glyphScale); t.translateX(by: -512, yBy: -512); t.concat()
     NSColor.white.setFill()
     let total = CGFloat(barHeights.count) * barWidth + CGFloat(barHeights.count - 1) * barGap
     for (i, h) in barHeights.enumerated() {
