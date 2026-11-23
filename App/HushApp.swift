@@ -11,11 +11,51 @@ struct HushApp: App {
         MenuBarExtra {
             Popover(model: model)
         } label: {
-            Image(systemName: model.icon)
+            MenuBarIcon(model: model)
         }
         .menuBarExtraStyle(.window)
 
         Settings { SettingsView(model: model) }
+    }
+}
+
+struct MenuBarIcon: View {
+    let model: AppModel
+
+    var body: some View {
+        if model.error != nil {
+            Image(systemName: "exclamationmark.triangle")
+        } else {
+            Image(nsImage: model.muted ? Self.muted : model.enabled ? Self.on : Self.off)
+        }
+    }
+
+    static let on = icon("waveform.circle.fill"), off = icon("waveform.circle")
+    static let muted = icon("waveform.circle.fill", slashed: true, description: "Hush, muted")
+
+    /// A symbol redrawn as a plain image: a template, or red with a slash for muted (SF Symbols has no slashed waveform.circle).
+    /// All states go through here: a status item lays a symbol image out 1 pt wider than a plain image of the same
+    /// size, so mixing the two shifts the neighbouring menu bar icons.
+    static func icon(_ name: String, slashed: Bool = false, description: String = "Hush") -> NSImage {
+        let base = NSImage(systemSymbolName: name, accessibilityDescription: nil)!
+        let image = NSImage(size: base.size, flipped: false) { rect in
+            base.draw(in: rect)
+            guard slashed else { return true }
+            let inset = rect.width * 0.04, line = rect.width / 13   // tuned by eye
+            let slash = NSBezierPath()
+            slash.move(to: NSPoint(x: rect.minX + inset, y: rect.maxY - inset))
+            slash.line(to: NSPoint(x: rect.maxX - inset, y: rect.minY + inset))
+            slash.lineCapStyle = .round
+            NSGraphicsContext.current?.compositingOperation = .destinationOut
+            slash.lineWidth = line * 2.4; slash.stroke()   // cut a gap out of the disc
+            NSGraphicsContext.current?.compositingOperation = .sourceOver
+            slash.lineWidth = line; slash.stroke()
+            NSColor.systemRed.setFill(); rect.fill(using: .sourceIn)   // muted is red, so not a template
+            return true
+        }
+        image.isTemplate = !slashed
+        image.accessibilityDescription = description
+        return image
     }
 }
 
@@ -317,6 +357,15 @@ enum Snapshot {
                       to: (path as NSString).deletingPathExtension + "-\(pane.rawValue.lowercased())-\(scheme == .dark ? "dark" : "light").png")
             }
         }
+        // Menu bar icons (on, off, muted): out.png -> out-menubar.png
+        let icons = { (scheme: ColorScheme) in
+            HStack(spacing: 16) { ForEach(0..<3, id: \.self) { MenuBarIcon(model: states[$0]) } }
+                .padding(12)
+                .foregroundStyle(scheme == .dark ? .white : .black)
+                .background(scheme == .dark ? Color(white: 0.15) : Color(white: 0.9))
+        }
+        write(VStack(spacing: 0) { icons(.light); icons(.dark) }.scaleEffect(4).frame(width: 520, height: 320),
+              to: (path as NSString).deletingPathExtension + "-menubar.png")
         write(VStack(spacing: 0) { row(.light); row(.dark) }, to: path)
         exit(0)
     }

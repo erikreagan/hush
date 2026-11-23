@@ -195,7 +195,7 @@ Pass-through (with HPF and gain still applied). Not a separate engine in the UI 
 **Menu bar icon** (SF Symbols), states:
 - Active — `waveform.circle.fill` (a custom "hush" glyph could replace it later)
 - Bypassed (noise removal off) — `waveform.circle`
-- Muted — `mic.slash.fill`
+- Muted — `waveform.circle.fill` with a drawn slash, in red (SF Symbols has no slashed variant)
 - Error (mic missing / driver missing / app can't open device) — `exclamationmark.triangle`
 
 **Popover as built** (300 pt wide, styled after the system's Control Center panels; top to bottom):

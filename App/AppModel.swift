@@ -91,12 +91,6 @@ final class AppModel {
 
     var selectedDevice: AudioDevice? { devices.first { $0.uid == inputUID } }
 
-    var icon: String {
-        if error != nil { return "exclamationmark.triangle" }
-        if muted { return "mic.slash.fill" }
-        return enabled ? "waveform.circle.fill" : "waveform.circle"
-    }
-
     init() {
         inputUID = defaults.string(forKey: "inputUID") ?? ""
         channel = defaults.integer(forKey: "channel")
