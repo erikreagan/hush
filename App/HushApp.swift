@@ -242,6 +242,7 @@ struct MenuRowStyle: ButtonStyle {
 struct Meter: View {
     let rms: Float
     let peakHold: Float
+    var height: CGFloat = 6
 
     private func fraction(_ dB: Float) -> CGFloat { CGFloat(max(0, min(1, (dB + 60) / 60))) }
 
@@ -260,7 +261,7 @@ struct Meter: View {
             }
             .animation(.linear(duration: 0.07), value: rms)
         }
-        .frame(height: 6)
+        .frame(height: height)
         .accessibilityElement()
         .accessibilityLabel("Input level")
         .accessibilityValue("\(Int(rms)) decibels")
@@ -298,75 +299,191 @@ enum Snapshot {
             .background(scheme == .dark ? Color(white: 0.25) : Color(white: 0.8))
             .environment(\.colorScheme, scheme)
         }
-        let view = NSHostingView(rootView: VStack(spacing: 0) { row(.light); row(.dark) })
-        view.frame = NSRect(origin: .zero, size: view.fittingSize)
-        let window = NSWindow(contentRect: view.frame, styleMask: .borderless, backing: .buffered, defer: false)
-        window.contentView = view
-        view.layoutSubtreeIfNeeded()
-        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { exit(1) }
-        view.cacheDisplay(in: view.bounds, to: bitmap)
-        try? bitmap.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: arguments[flag + 1]))
+        let path = arguments[flag + 1]
+        func write(_ root: some View, to path: String) {
+            let view = NSHostingView(rootView: root)
+            view.frame = NSRect(origin: .zero, size: view.fittingSize)
+            let window = NSWindow(contentRect: view.frame, styleMask: .borderless, backing: .buffered, defer: false)
+            window.contentView = view
+            view.layoutSubtreeIfNeeded()
+            guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { exit(1) }
+            view.cacheDisplay(in: view.bounds, to: bitmap)
+            try? bitmap.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+        }
+        // Settings panes: out.png -> out-audio-light.png etc.
+        for pane in SettingsPane.allCases {
+            for scheme in [ColorScheme.light, .dark] {
+                write(SettingsView(model: states[0], pane: pane).background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, scheme),
+                      to: path.replacingOccurrences(of: ".png", with: "-\(pane.rawValue.lowercased())-\(scheme == .dark ? "dark" : "light").png"))
+            }
+        }
+        write(VStack(spacing: 0) { row(.light); row(.dark) }, to: path)
         exit(0)
     }
 }
 
+enum SettingsPane: String, CaseIterable, Identifiable {
+    case audio = "Audio", shortcuts = "Shortcuts", general = "General", advanced = "Advanced"
+    var id: Self { self }
+    var icon: String {
+        switch self {
+        case .audio: "waveform"
+        case .shortcuts: "keyboard"
+        case .general: "switch.2"
+        case .advanced: "gearshape.2"
+        }
+    }
+}
+
+/// Fixed-size window: a sidebar with a status card pinned at its bottom, and one pane to the right.
+/// Plain buttons beside a detail view (not NavigationSplitView or List): a fixed window must not collapse the sidebar, and List's selection can't be snapshotted.
 struct SettingsView: View {
     @Bindable var model: AppModel
+    @State var pane = SettingsPane.audio   // settable via the memberwise init so Snapshot can pick a pane
 
     var body: some View {
-        Form {
-            Section("Input") {
-                Picker("Microphone", selection: $model.inputUID) {
-                    ForEach(model.devices) { Text($0.name).tag($0.uid) }
-                    if model.selectedDevice == nil, !model.inputUID.isEmpty { Text("Disconnected microphone").tag(model.inputUID) }
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                VStack(spacing: 2) {
+                    ForEach(SettingsPane.allCases) { item in
+                        Button { pane = item } label: {
+                            Label(item.rawValue, systemImage: item.icon)
+                                .foregroundStyle(pane == item ? .white : .primary)
+                                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8).frame(height: 32)
+                                .background(pane == item ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 7, style: .continuous))
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(pane == item ? .isSelected : [])
+                    }
+                    Spacer()
                 }
-                if let device = model.selectedDevice, device.inputChannels > 1 {
-                    Picker("Input channel", selection: $model.channel) {
-                        ForEach(0..<device.inputChannels, id: \.self) { Text("\($0 + 1)").tag($0) }
+                .padding(.horizontal, 10).padding(.top, 12)
+                StatusCard(model: model).padding(10)
+            }
+            .frame(width: 210).background(.primary.opacity(0.04))
+            Divider()
+            VStack(alignment: .leading, spacing: 0) {
+                HStack { Text(pane.rawValue).font(.title2.bold()); Spacer() }   // room for the preset menu (#2)
+                    .padding(.horizontal, 28).padding(.top, 16).frame(minHeight: 44)
+                detail
+            }
+        }
+        .frame(width: 760, height: 680)
+    }
+
+    @ViewBuilder private var detail: some View {
+        Form {
+            switch pane {
+            case .audio:
+                Section {
+                    Picker("Microphone", selection: $model.inputUID) {
+                        ForEach(model.devices) { Text($0.name).tag($0.uid) }
+                        if model.selectedDevice == nil, !model.inputUID.isEmpty { Text("Disconnected microphone").tag(model.inputUID) }
+                    }
+                    if let device = model.selectedDevice, device.inputChannels > 1 {
+                        Picker("Input channel", selection: $model.channel) {
+                            ForEach(0..<device.inputChannels, id: \.self) { Text("\($0 + 1)").tag($0) }
+                        }
+                    }
+                    VStack(spacing: 4) {
+                        Meter(rms: model.rms, peakHold: model.peakHold, height: 10)
+                        HStack { Text("−60"); Spacer(); Text("−40"); Spacer(); Text("−20"); Spacer(); Text("0 dB") }
+                            .font(.caption2).monospacedDigit().foregroundStyle(.secondary)
+                    }
+                    SliderRow(title: "Input trim", value: $model.inputGainDB, range: -12...12, step: 0.5) { String(format: "%+.1f dB", $0) }
+                } header: { Text("Input") } footer: { Text("Speak normally and adjust trim until the level sits in the green.") }
+                Section("Processing") {
+                    Toggle(isOn: $model.highPassEnabled) {
+                        Text("High-pass filter"); Text("Cuts rumble below the voice")
+                    }
+                    SliderRow(title: "Cutoff", value: $model.highPassHz, range: 60...150, step: 5) { "\(Int($0)) Hz" }
+                        .disabled(!model.highPassEnabled)
+                    SliderRow(title: "Output trim", caption: "Final volume sent to apps", value: $model.outputGainDB, range: -12...12, step: 0.5) { String(format: "%+.1f dB", $0) }
+                }
+                Section {
+                    Picker("Play to", selection: $model.monitorUID) {
+                        Text("Current Mac output").tag("")
+                        ForEach(model.outputDevices) { Text($0.name).tag($0.uid) }
+                    }
+                } header: { Text("Listen") } footer: {
+                    Text("Listen plays what apps hear, slightly delayed. Use headphones: through speakers the mic picks it up and it feeds back.")
+                }
+            case .shortcuts:
+                Section {
+                    LabeledContent("Noise removal on/off") { ShortcutRecorder(shortcut: $model.toggleShortcut, hotkeys: model.hotkeys) }
+                    LabeledContent("Mute") { ShortcutRecorder(shortcut: $model.muteShortcut, hotkeys: model.hotkeys) }
+                    LabeledContent("Next strength") { ShortcutRecorder(shortcut: $model.cycleShortcut, hotkeys: model.hotkeys) }
+                } footer: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let problem = model.shortcutError { Text(problem).foregroundStyle(.red) }
+                        Text("These work in any app. Use at least one of ⌘ ⌥ ⌃, or a function key.")
                     }
                 }
-                Slider(value: $model.inputGainDB, in: -12...12, step: 0.5) { Text(String(format: "Input trim  %+.1f dB", model.inputGainDB)) }
-            }
-            Section("Listen") {
-                Picker("Play to", selection: $model.monitorUID) {
-                    Text("Current Mac output").tag("")
-                    ForEach(model.outputDevices) { Text($0.name).tag($0.uid) }
+            case .general:
+                Section {
+                    Toggle("Launch Hush at login", isOn: $model.launchAtLogin)
+                    Toggle("Make Hush Mic the default input when Hush starts", isOn: $model.claimDefaultOnLaunch)
+                    Toggle("Restore the previous default input when Hush quits", isOn: $model.restoreDefaultOnQuit)
+                } footer: { if let problem = model.loginItemError { Text(problem).foregroundStyle(.red) } }
+            case .advanced:
+                Section("Stream Deck") {
+                    LabeledContent {
+                        TextField("Control port", value: $model.port, format: .number.grouping(.never))
+                            .labelsHidden().multilineTextAlignment(.trailing).frame(width: 80)
+                    } label: { Text("Control port"); Text("Applies after relaunch") }
+                    LabeledContent("Connection") {
+                        if let problem = model.server.startError { Text("Control socket failed: \(problem)").foregroundStyle(.red) }
+                        else { Text("\(model.server.clientCount) client(s) connected").foregroundStyle(.secondary) }
+                    }
                 }
-                Text("Listen plays what apps hear, slightly delayed. Use headphones: through speakers the mic picks it up and it feeds back.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            Section("Processing") {
-                Toggle("High-pass filter (cuts rumble below the voice)", isOn: $model.highPassEnabled)
-                Slider(value: $model.highPassHz, in: 60...150, step: 5) { Text("Cutoff  \(Int(model.highPassHz)) Hz") }
-                    .disabled(!model.highPassEnabled)
-                Slider(value: $model.outputGainDB, in: -12...12, step: 0.5) { Text(String(format: "Output trim  %+.1f dB", model.outputGainDB)) }
-            }
-            Section("System") {
-                Toggle("Launch Hush at login", isOn: $model.launchAtLogin)
-                if let problem = model.loginItemError { Text(problem).font(.caption).foregroundStyle(.red) }
-                Toggle("Make Hush Mic the default input when Hush starts", isOn: $model.claimDefaultOnLaunch)
-                Toggle("Restore the previous default input when Hush quits", isOn: $model.restoreDefaultOnQuit)
-            }
-            Section("Shortcuts") {
-                LabeledContent("Noise removal on/off") { ShortcutRecorder(shortcut: $model.toggleShortcut, hotkeys: model.hotkeys) }
-                LabeledContent("Mute") { ShortcutRecorder(shortcut: $model.muteShortcut, hotkeys: model.hotkeys) }
-                LabeledContent("Next strength") { ShortcutRecorder(shortcut: $model.cycleShortcut, hotkeys: model.hotkeys) }
-                if let problem = model.shortcutError { Text(problem).font(.caption).foregroundStyle(.red) }
-                Text("These work in any app. Use at least one of ⌘ ⌥ ⌃, or a function key.").font(.caption).foregroundStyle(.secondary)
-            }
-            Section("Stream Deck") {
-                TextField("Control port (applies after relaunch)", value: $model.port, format: .number.grouping(.never))
-                if let problem = model.server.startError { Text("Control socket failed: \(problem)").foregroundStyle(.red) }
-                else { Text("\(model.server.clientCount) client(s) connected").foregroundStyle(.secondary) }
-            }
-            Section("Diagnostics") {
-                LabeledContent("Added delay", value: String(format: "%.0f ms", model.latencyMs))
-                LabeledContent("Clock drift correction", value: String(format: "%+.0f ppm", model.driftPPM))
-                LabeledContent("Buffer underruns / overruns", value: "\(model.underruns) / \(model.overruns)")
-                Text(model.engineInfo).font(.caption.monospaced()).textSelection(.enabled)
+                Section("Diagnostics") {
+                    LabeledContent("Added delay", value: String(format: "%.0f ms", model.latencyMs))
+                    LabeledContent("Clock drift correction", value: String(format: "%+.0f ppm", model.driftPPM))
+                    LabeledContent("Buffer underruns / overruns", value: "\(model.underruns) / \(model.overruns)")
+                    Text(model.engineInfo).font(.caption.monospaced()).textSelection(.enabled)
+                }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 640)
+        .scrollContentBackground(.hidden)
+    }
+}
+
+/// A labelled slider with its current value to the right.
+private struct SliderRow: View {
+    let title: String
+    var caption: String?
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    let format: (Double) -> String
+
+    var body: some View {
+        LabeledContent {
+            HStack(spacing: 10) {
+                Slider(value: $value, in: range, step: step) { Text(title) }.labelsHidden().frame(width: 200)
+                Text(format(value)).monospacedDigit().foregroundStyle(.secondary).frame(width: 62, alignment: .trailing)
+            }
+        } label: { Text(title); if let caption { Text(caption) } }
+    }
+}
+
+/// Pinned at the bottom of the sidebar on every pane.
+private struct StatusCard: View {
+    let model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Circle().fill(model.error == nil && model.enabled ? Color.green : Color.secondary).frame(width: 8, height: 8)
+                Text(model.enabled ? "Hush is on" : "Hush is off").fontWeight(.semibold)
+            }
+            Text(model.statusLine).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            Meter(rms: model.rms, peakHold: model.peakHold)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(.primary.opacity(0.06), in: .rect(cornerRadius: 10, style: .continuous))
     }
 }
