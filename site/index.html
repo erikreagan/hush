@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hush — mic noise removal for Mac</title>
+<meta name="description" content="A Mac menu bar app that removes background noise from your microphone before any app hears it.">
+<meta property="og:title" content="Hush — mic noise removal for Mac">
+<meta property="og:description" content="A Mac menu bar app that removes background noise from your microphone before any app hears it.">
+<meta property="og:image" content="icon.png">
+<link rel="icon" href="icon.png">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfaf8; --fg: #1b1a18; --muted: #6b6862; --line: #e4e1db; --accent: #1b1a18; --on-accent: #fbfaf8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #131211; --fg: #efece6; --muted: #9a968e; --line: #2b2926; --accent: #efece6; --on-accent: #131211; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 680px; margin: 0 auto; padding: 96px 24px 64px; }
+  header img { width: 96px; height: 96px; display: block; margin-bottom: 28px; border-radius: 22.5%; }
+  h1 { font-size: clamp(2.2rem, 6vw, 3.2rem); line-height: 1.1; letter-spacing: -0.03em; margin: 0 0 20px; text-wrap: balance; }
+  h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; margin: 72px 0 20px; }
+  p { margin: 0 0 16px; }
+  .lede { font-size: 1.2rem; color: var(--muted); max-width: 34em; }
+  a { color: inherit; text-underline-offset: 3px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin-top: 32px; }
+  .button {
+    display: inline-block; background: var(--accent); color: var(--on-accent);
+    padding: 12px 22px; border-radius: 999px; text-decoration: none; font-weight: 600;
+  }
+  .button:hover { opacity: 0.85; }
+  a:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+  .note { color: var(--muted); font-size: 0.95rem; }
+  ol.steps { list-style: none; padding: 0; margin: 0; counter-reset: step; }
+  ol.steps li { counter-increment: step; padding: 18px 0 18px 48px; border-top: 1px solid var(--line); position: relative; }
+  ol.steps li::before { content: counter(step); position: absolute; left: 0; top: 18px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  ul.features { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 32px; }
+  ul.features li { padding: 18px 0; border-top: 1px solid var(--line); }
+  ul.features strong { display: block; }
+  ul.features span { color: var(--muted); font-size: 0.95rem; }
+  pre {
+    background: color-mix(in srgb, var(--fg) 6%, transparent); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 18px; overflow-x: auto; font: 0.85rem/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; margin: 0 0 16px;
+  }
+  footer { border-top: 1px solid var(--line); margin-top: 72px; padding-top: 24px; color: var(--muted); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="icon.png" alt="" width="96" height="96">
+    <h1>Hush cleans up your mic before any app hears it.</h1>
+    <p class="lede">A Mac menu bar app that takes the fans, typing and clicks out of your microphone, then hands every app the clean version.</p>
+    <div class="cta">
+      <a class="button" href="https://github.com/erikreagan/hush">Get the source on GitHub</a>
+      <span class="note">Free and open source. You build it yourself.</span>
+    </div>
+  </header>
+
+  <h2>How it works</h2>
+  <ol class="steps">
+    <li><strong>It listens to your real microphone.</strong> Any input your Mac can see.</li>
+    <li><strong>It removes the background noise.</strong> Fan hum, keyboard typing, mouse clicks and desk thuds, processed on your Mac.</li>
+    <li><strong>It feeds a virtual microphone called Hush Mic.</strong> Zoom, Meet, Slack, browsers and recording apps pick Hush Mic as their input, or use it automatically because Hush sets it as the Mac's default.</li>
+  </ol>
+
+  <h2>What you get</h2>
+  <ul class="features">
+    <li><strong>Two noise-removal engines</strong><span>Switch between Apple's built-in voice isolation and DeepFilterNet 3.</span></li>
+    <li><strong>Three strength levels</strong><span>Pick how much noise gets taken out.</span></li>
+    <li><strong>Hold to compare</strong><span>Hear the raw mic against the cleaned one, or monitor yourself with Listen.</span></li>
+    <li><strong>Hard mute</strong><span>Silence to every app at once.</span></li>
+    <li><strong>Global keyboard shortcuts</strong><span>Control it without opening the menu.</span></li>
+    <li><strong>Stream Deck plugin</strong><span>Toggle, strength, mute and a live level meter on an Elgato Stream Deck.</span></li>
+    <li><strong>Command line tool</strong><span><code>hush-cli</code> runs the same engines over a WAV file for A/B comparisons.</span></li>
+    <li><strong>Only your mic</strong><span>No recording, transcription or meeting notes. Mic in, clean mic out.</span></li>
+  </ul>
+
+  <h2>Get it</h2>
+  <p>Hush was built for one person's desk and is shared as-is. There is no installer or signed release. You need an Apple silicon Mac on macOS 15 or later, the Xcode command line tools, and <a href="https://rustup.rs">Rust</a>.</p>
+<pre>git clone --recursive https://github.com/erikreagan/hush.git
+cd hush
+
+scripts/install-driver.sh   # installs the virtual mic; needs admin
+scripts/build-app.sh        # builds build/Hush.app
+open build/Hush.app</pre>
+  <p class="note">Full instructions, including the Stream Deck plugin, are in the <a href="https://github.com/erikreagan/hush#readme">README</a>.</p>
+
+  <footer>
+    <p>Licensed under <a href="https://github.com/erikreagan/hush/blob/main/LICENSE">GPL-3.0</a>. Built on <a href="https://github.com/ExistentialAudio/BlackHole">BlackHole</a> and <a href="https://github.com/Rikorose/DeepFilterNet">DeepFilterNet</a>.</p>
+  </footer>
+</main>
+</body>
+</html>
