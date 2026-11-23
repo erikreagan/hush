@@ -430,18 +430,6 @@ struct SettingsView: View {
                         .disabled(!model.highPassEnabled)
                     SliderRow(title: "Output trim", caption: "Final volume sent to apps", value: $model.outputGainDB, range: -12...12, step: 0.5) { String(format: "%+.1f dB", $0) }
                 }
-                Section {
-                    Toggle("Listen", isOn: $model.listening).disabled(model.error != nil)
-                    Picker("Play to", selection: $model.monitorUID) {
-                        Text("Current Mac output").tag("")
-                        ForEach(model.outputDevices) { Text($0.name).tag($0.uid) }
-                    }
-                } header: { Text("Listen") } footer: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        if let problem = model.monitorError { Text(problem).foregroundStyle(.red) }
-                        Text("Listen plays what apps hear, slightly delayed. Use headphones: through speakers the mic picks it up and it feeds back.")
-                    }
-                }
             case .shortcuts:
                 Section {
                     LabeledContent("Noise removal on/off") { ShortcutRecorder(shortcut: $model.toggleShortcut, hotkeys: model.hotkeys) }
@@ -460,6 +448,18 @@ struct SettingsView: View {
                     Toggle("Restore the previous default input when Hush quits", isOn: $model.restoreDefaultOnQuit)
                 } footer: { if let problem = model.loginItemError { Text(problem).foregroundStyle(.red) } }
             case .advanced:
+                Section {
+                    Toggle("Listen", isOn: $model.listening).disabled(model.error != nil)
+                    Picker("Play to", selection: $model.monitorUID) {
+                        Text("Current Mac output").tag("")
+                        ForEach(model.outputDevices) { Text($0.name).tag($0.uid) }
+                    }
+                } header: { Text("Listen") } footer: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let problem = model.monitorError { Text(problem).foregroundStyle(.red) }
+                        Text("Listen plays what apps hear, slightly delayed. Use headphones: through speakers the mic picks it up and it feeds back.")
+                    }
+                }
                 Section("Stream Deck") {
                     LabeledContent {
                         TextField("Control port", value: $model.port, format: .number.grouping(.never))
@@ -476,12 +476,14 @@ struct SettingsView: View {
                     LabeledContent("Buffer underruns / overruns", value: "\(model.underruns) / \(model.overruns)")
                     Text(model.engineInfo).font(.caption.monospaced()).textSelection(.enabled)
                     LabeledContent {
-                        if model.recordingTest { ProgressView().controlSize(.small) }
-                        if !model.testFiles.isEmpty, !model.recordingTest {
-                            Button("Show Last Test in Finder") { NSWorkspace.shared.activateFileViewerSelecting(model.testFiles) }
+                        HStack {   // without this the two buttons stack and the row doubles in height
+                            if model.recordingTest { ProgressView().controlSize(.small) }
+                            if !model.testFiles.isEmpty, !model.recordingTest {
+                                Button("Show Last Test in Finder") { NSWorkspace.shared.activateFileViewerSelecting(model.testFiles) }
+                            }
+                            Button(model.recordingTest ? "Recording Test…" : "Record 30-Second Test") { model.recordTest() }
+                                .disabled(model.recordingTest || model.error != nil)
                         }
-                        Button(model.recordingTest ? "Recording Test…" : "Record 30-Second Test") { model.recordTest() }
-                            .disabled(model.recordingTest || model.error != nil)
                     } label: {
                         Text("Test recording")
                         if let result = model.testResult { Text(result) } else { Text("Saves the raw and cleaned mic side by side") }
