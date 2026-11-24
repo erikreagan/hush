@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hush — mic noise removal for Mac</title>
+<meta name="description" content="A Mac menu bar app that removes background noise from your microphone before any app hears it.">
+<meta property="og:title" content="Hush — mic noise removal for Mac">
+<meta property="og:description" content="A Mac menu bar app that removes background noise from your microphone before any app hears it.">
+<meta property="og:image" content="https://hush.erikreagan.com/icon.png">
+<meta property="og:url" content="https://hush.erikreagan.com/">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500&family=Newsreader:opsz,wght@6..72,300..400&display=swap">
+<style>
+:root{color-scheme:light dark;--bg:#F4F1F5;--ink:#221A2B;--muted:#6A6074;--brand:#46345A;--accent:#7A56A0;--line:#E0DAE4;--tint:#ECE7EF;
+--m-bg:#FFFFFF;--m-fg:#1D1D1F;--m-sub:#6E6E73;--m-tile:#F3F3F5;--m-chip:#E4E4E8;--m-line:#DCDCE0;--m-bar:#F7F7F8}
+@media (prefers-color-scheme:dark){:root{--bg:#17121D;--ink:#ECE7F0;--muted:#9A90A5;--brand:#ECE7F0;--accent:#C3A5E0;--line:#2B2334;--tint:#1F1927;
+--m-bg:#1E1E20;--m-fg:#F2F2F7;--m-sub:#A1A1A6;--m-tile:#2A2A2D;--m-chip:#3A3A3E;--m-line:#3A3A3E;--m-bar:#2A2A2D}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.6 'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit}
+p a,footer a{color:var(--accent)}p a:hover,footer a:hover{color:var(--ink)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+h1,h2,.serif{font-family:Newsreader,Georgia,serif;font-weight:350}
+h1,h2,p,ul{margin:0}
+ul{list-style:none;padding:0}
+.wrap{max-width:1120px;margin:0 auto;padding-left:32px;padding-right:32px}
+header{padding-top:28px;padding-bottom:28px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 24px}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none;min-height:44px}
+.logo span{font-size:26px;letter-spacing:-.01em;line-height:1}
+.gh{font-size:16px;padding:9px 20px;border:1px solid var(--line);border-radius:999px;text-decoration:none}
+.disc{fill:var(--brand)}.bars{fill:var(--bg)}.bars.t{fill:var(--tint)}
+h2{font-size:clamp(34px,4.4vw,52px);line-height:1.1;letter-spacing:-.02em}
+.sub{color:var(--muted)}
+.hero{max-width:880px;margin:0 auto;padding:48px 32px 0;text-align:center;display:flex;flex-direction:column;align-items:center;gap:24px}
+h1{font-size:clamp(46px,6.6vw,88px);line-height:1.05;letter-spacing:-.025em;text-wrap:balance}
+.hero p{max-width:30em;font-size:20px;color:var(--muted)}
+.btn{display:inline-block;background:var(--accent);color:var(--bg);padding:14px 28px;border-radius:999px;text-decoration:none;font-weight:500;font-size:17px;margin-top:6px}
+.btn:hover{color:var(--bg);opacity:.9}
+.hero .note{font-size:15px;color:var(--muted)}
+.stage{position:relative;margin-top:64px;padding-bottom:104px;display:flex;justify-content:center;overflow:hidden}
+.wave{position:absolute;left:0;right:0;top:150px;height:300px;padding:0 32px;display:flex;gap:3px}
+.half{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:3px;overflow:hidden}
+.half i,.cmp i{flex:1 1 0;min-width:2px;max-width:8px;height:var(--h);border-radius:4px;background:var(--muted);opacity:.4}
+.half.c i{background:var(--accent);opacity:var(--o)}
+.lab{position:absolute;top:462px;font-size:14px;color:var(--muted)}
+.lab.r{right:32px;color:var(--accent)}.lab.l{left:32px}
+.zoom{position:relative;flex:none;zoom:1.25}
+.menu{width:480px;display:flex;flex-direction:column;align-items:center;gap:8px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;color:var(--m-fg);text-align:left;line-height:1.3;font-size:16px}
+.mbar{height:30px;background:var(--m-bar);border-top:1px solid var(--m-line);border-bottom:1px solid var(--m-line);display:flex;align-items:center;gap:14px;padding:0 44px;white-space:nowrap;font-size:13px;font-weight:500;-webkit-mask-image:linear-gradient(to right,transparent 0%,#000 13%,#000 87%,transparent 100%);mask-image:linear-gradient(to right,transparent 0%,#000 13%,#000 87%,transparent 100%)}
+.mbar svg,.mbar .chipb{flex:none}
+.chipb{display:flex;align-items:center;justify-content:center;width:32px;height:22px;border-radius:6px;background:var(--m-chip)}
+.panel{width:300px;padding:16px;border-radius:14px;background:var(--m-bg);border:1px solid var(--m-line);display:flex;flex-direction:column;gap:12px}
+.row{display:flex;align-items:center;justify-content:space-between}
+.t13{font-size:13px}.t11{font-size:11px;color:var(--m-sub)}
+.toggle{width:44px;height:24px;padding:2px;border-radius:12px;background:#0071E3;display:flex;align-items:center;justify-content:flex-end}
+.toggle span{width:26px;height:20px;border-radius:10px;background:#fff}
+.tile{display:flex;align-items:center;gap:10px;background:var(--m-tile);border-radius:10px;padding:10px}
+.ic{flex:none;width:30px;height:30px;border-radius:50%;background:var(--m-chip);display:flex;align-items:center;justify-content:center}
+.tile b{display:block;font-size:13px;font-weight:600}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--m-tile);border-radius:8px;padding:2px;font-size:13px;text-align:center}
+.seg span{padding:5px 0}.seg .on{border-radius:6px;background:#0071E3;color:#fff;font-weight:700}
+.tint{background:var(--tint)}
+.flow{padding-top:104px;padding-bottom:104px;display:flex;flex-direction:column;align-items:center;gap:48px;text-align:center}
+.flow>div:first-child{display:flex;flex-direction:column;align-items:center;gap:14px}
+.flow p{max-width:34em;color:var(--muted)}
+.chain{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px 18px;font-size:17px}
+.pill{padding:12px 20px;border-radius:999px;border:1px solid var(--line);background:var(--bg)}
+.chain>.pill{padding:12px 22px;color:var(--muted)}
+.chain>.pill.on{background:var(--accent);color:var(--bg);font-weight:500;border-color:var(--accent)}
+.chain>.pill.on{display:flex;align-items:center;gap:10px;padding:8px 24px 8px 8px}.chain>.pill.end{color:var(--ink)}
+.pill.on circle{fill:var(--bg)}.pill.on g{fill:var(--accent)}
+.cloud{display:flex;flex-direction:column;align-items:center;gap:22px;font-size:15px;color:var(--muted)}
+.cloud ul{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:18px 40px;font-size:17px}
+.cloud li{display:flex;align-items:center;gap:10px}.cloud svg{fill:currentColor;flex:none}
+@media(max-width:640px){.chain{flex-direction:column}.chain .arrow{transform:rotate(90deg)}}
+.arrow{stroke:var(--muted)}.arrow.a{stroke:var(--accent)}
+.split{padding-top:136px;padding-bottom:136px;display:flex;flex-wrap:wrap;align-items:center;gap:56px 72px}
+.split>div{min-width:0}
+.cmpcol{flex:1 1 420px;display:flex;flex-direction:column;gap:24px}
+.cmpcol>div{display:flex;flex-direction:column;gap:6px}
+.cmpcol span{font-size:14px;color:var(--muted)}.cmpcol span.a{color:var(--accent)}
+.cmp{display:flex;align-items:center;justify-content:space-between;gap:2px;height:96px;overflow:hidden}
+.cmp i{max-width:6px;border-radius:3px;opacity:.55}
+.cmp.c i{background:var(--accent);opacity:var(--o)}
+.cmpcol p{font-size:14px;color:var(--muted)}
+.menulist{flex:1 1 400px}
+.menulist h2{margin-bottom:28px}
+.menulist li{padding:16px 0;border-top:1px solid var(--line);display:flex;gap:20px}
+.menulist li:last-child{border-bottom:1px solid var(--line)}
+.menulist b{flex:0 0 96px;font-weight:500}
+.menulist span{color:var(--muted);font-size:17px}
+.more{padding-bottom:136px}
+.more h2{margin-bottom:40px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:0 48px}
+.grid li{padding:22px 0;border-top:1px solid var(--line)}
+.grid b{display:block;font-weight:500}
+.grid span{color:var(--muted);font-size:16px}
+.build{max-width:720px;margin:0 auto;padding:104px 32px}
+.build h2{margin-bottom:20px}
+.build p{margin-bottom:28px;color:var(--muted)}
+pre{margin:0 0 20px;background:var(--bg);border:1px solid var(--line);border-radius:20px;padding:26px 28px;overflow-x:auto;font:14px/1.8 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink)}
+.build p.small{margin:0;font-size:15px}
+footer{padding-top:32px;padding-bottom:56px;font-size:15px;color:var(--muted)}
+@media (max-width:760px){
+.wrap,.hero,.build{padding-left:20px;padding-right:20px}
+.zoom{zoom:1}
+.stage{padding-top:36px;margin-top:40px}
+.wave{top:190px;padding:0 20px}
+.half i:nth-child(even){display:none}
+.lab{top:4px}.lab.l{left:20px}.lab.r{right:20px}
+.split{padding-top:80px;padding-bottom:80px}
+.flow,.build{padding-top:72px;padding-bottom:72px}
+.more{padding-bottom:80px}
+.menulist li{gap:12px}.menulist b{flex-basis:84px}
+pre{padding:20px;border-radius:16px}
+}
+@media (max-width:520px){.zoom{zoom:.75}}
+@media (max-width:380px){.zoom{zoom:.68}}
+</style>
+</head>
+<body>
+<header class="wrap">
+<a class="logo" href="#top" style="color:var(--ink)">
+<svg viewBox="0 0 100 100" width="30" height="30" aria-hidden="true"><circle class="disc" cx="50" cy="50" r="50"/><g class="bars" transform="translate(50 50)"><rect x="-28" y="-5" width="6" height="10" rx="3"/><rect x="-18" y="-12" width="6" height="24" rx="3"/><rect x="-8" y="-22" width="6" height="44" rx="3"/><rect x="2" y="-11" width="6" height="22" rx="3"/><rect x="12" y="-17" width="6" height="34" rx="3"/><rect x="22" y="-6" width="6" height="12" rx="3"/></g></svg>
+<span class="serif">Hush</span>
+</a>
+<a class="gh" href="https://github.com/erikreagan/hush">GitHub</a>
+</header>
+
+<main>
+<section id="top" class="hero">
+<h1>Quieter calls. Every app.</h1>
+<p>Hush sits in your Mac's menu bar and takes fans, typing and clicks out of your microphone before any app hears it.</p>
+<a class="btn" href="https://github.com/erikreagan/hush">Get the source on GitHub</a>
+<span class="note">Free and open source. You build it yourself.</span>
+</section>
+
+<div class="stage">
+<div class="wave" aria-hidden="true">
+<div class="half"><i style="--h:45px"></i><i style="--h:69px"></i><i style="--h:51px"></i><i style="--h:51px"></i><i style="--h:57px"></i><i style="--h:81px"></i><i style="--h:180px"></i><i style="--h:219px"></i><i style="--h:255px"></i><i style="--h:177px"></i><i style="--h:174px"></i><i style="--h:102px"></i><i style="--h:66px"></i><i style="--h:48px"></i><i style="--h:57px"></i><i style="--h:69px"></i><i style="--h:60px"></i><i style="--h:78px"></i><i style="--h:156px"></i><i style="--h:147px"></i><i style="--h:171px"></i><i style="--h:180px"></i><i style="--h:177px"></i><i style="--h:195px"></i><i style="--h:192px"></i><i style="--h:93px"></i><i style="--h:57px"></i><i style="--h:48px"></i><i style="--h:69px"></i><i style="--h:45px"></i><i style="--h:54px"></i><i style="--h:54px"></i><i style="--h:69px"></i><i style="--h:105px"></i><i style="--h:162px"></i><i style="--h:189px"></i><i style="--h:177px"></i><i style="--h:165px"></i><i style="--h:96px"></i><i style="--h:66px"></i><i style="--h:60px"></i><i style="--h:60px"></i><i style="--h:57px"></i><i style="--h:57px"></i><i style="--h:63px"></i><i style="--h:69px"></i><i style="--h:54px"></i><i style="--h:51px"></i><i style="--h:75px"></i><i style="--h:99px"></i><i style="--h:171px"></i><i style="--h:126px"></i><i style="--h:135px"></i><i style="--h:156px"></i><i style="--h:282px"></i><i style="--h:225px"></i></div>
+<div class="half c"><i style="--h:186px;--o:0.75"></i><i style="--h:129px;--o:0.75"></i><i style="--h:180px;--o:0.75"></i><i style="--h:138px;--o:0.75"></i><i style="--h:84px;--o:0.75"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:42px;--o:0.75"></i><i style="--h:96px;--o:0.75"></i><i style="--h:138px;--o:0.75"></i><i style="--h:258px;--o:0.75"></i><i style="--h:207px;--o:0.75"></i><i style="--h:237px;--o:0.75"></i><i style="--h:171px;--o:0.75"></i><i style="--h:84px;--o:0.75"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:39px;--o:0.75"></i><i style="--h:111px;--o:0.75"></i><i style="--h:141px;--o:0.75"></i><i style="--h:129px;--o:0.75"></i><i style="--h:147px;--o:0.75"></i><i style="--h:267px;--o:0.75"></i><i style="--h:261px;--o:0.75"></i><i style="--h:255px;--o:0.75"></i><i style="--h:195px;--o:0.75"></i><i style="--h:108px;--o:0.75"></i><i style="--h:102px;--o:0.75"></i><i style="--h:30px;--o:0.75"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:39px;--o:0.75"></i><i style="--h:108px;--o:0.75"></i><i style="--h:147px;--o:0.75"></i><i style="--h:273px;--o:0.75"></i><i style="--h:261px;--o:0.75"></i><i style="--h:147px;--o:0.75"></i><i style="--h:102px;--o:0.75"></i><i style="--h:69px;--o:0.75"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i><i style="--h:8px;--o:0.25"></i></div>
+</div>
+<span class="lab l">Raw mic</span>
+<span class="lab r">Hush Mic</span>
+<div class="zoom">
+<div class="menu" role="img" aria-label="The Hush menu open from the Mac menu bar: noise removal switched on, a level meter, strength set to Max, and Mute, Compare and Listen buttons.">
+<div class="mbar" aria-hidden="true">
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.5"/><path d="M5.5 14h5"/></svg>
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 9.5A5.5 5.5 0 1 1 6.5 3a4.5 4.5 0 0 0 6.5 6.5z"/></svg>
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6h2.5l3.5-3v10L5 10H2.5z"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5"/></svg>
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1.5 6a9.5 9.5 0 0 1 13 0M4 8.7a6 6 0 0 1 8 0M6.4 11.3a2.5 2.5 0 0 1 3.2 0"/></svg>
+<svg width="26" height="13" viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><rect x="0.75" y="0.75" width="20" height="10.5" rx="3"/><rect x="2.5" y="2.5" width="14" height="7" rx="1.5" fill="currentColor" stroke="none"/><path d="M22.6 4.2v3.6"/></svg>
+<span class="chipb"><svg viewBox="0 0 100 100" width="16" height="16"><circle cx="50" cy="50" r="50" fill="currentColor"/><g transform="translate(50 50)" style="fill:var(--m-chip)"><rect x="-28" y="-5" width="6" height="10" rx="3"/><rect x="-18" y="-12" width="6" height="24" rx="3"/><rect x="-8" y="-22" width="6" height="44" rx="3"/><rect x="2" y="-11" width="6" height="22" rx="3"/><rect x="12" y="-17" width="6" height="34" rx="3"/><rect x="22" y="-6" width="6" height="12" rx="3"/></g></svg></span>
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1.5" y="2.5" width="13" height="4.5" rx="2.25"/><rect x="1.5" y="9" width="13" height="4.5" rx="2.25"/><circle cx="4" cy="4.75" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="11.25" r="1" fill="currentColor" stroke="none"/></svg>
+<span id="today"></span>
+<span>9:41 AM</span>
+</div>
+<div class="panel" aria-hidden="true">
+<div class="row">
+<div><div class="t13" style="font-weight:700">Hush</div><div class="t11">Cleaning up your microphone</div></div>
+<span class="toggle"><span></span></span>
+</div>
+<div class="row" style="background:var(--m-tile);border-radius:8px;padding:6px 6px 6px 10px">
+<span class="t11" style="font-weight:600">Preset</span>
+<span style="display:flex;align-items:center;gap:10px;background:var(--m-chip);border-radius:6px;padding:3px 8px 3px 12px;font-size:13px">Manual<svg width="9" height="6" viewBox="0 0 9 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l3.5 3.5L8 1"/></svg></span>
+</div>
+<div style="display:flex;align-items:center;gap:8px;color:var(--m-sub)">
+<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"/><path d="M3 7.5a5 5 0 0 0 10 0M8 12.5v2"/></svg>
+<div style="flex:1;height:5px;border-radius:3px;background:var(--m-chip);position:relative"><div style="width:65%;height:5px;border-radius:3px;background:#30B158"></div><div style="position:absolute;left:85%;top:0;width:2px;height:5px;background:var(--m-sub)"></div></div>
+</div>
+<div class="t11" style="font-weight:600;margin-bottom:-4px">Strength</div>
+<div class="seg"><span>Light</span><span>Medium</span><span class="on">Max</span></div>
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+<div class="tile"><span class="ic"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"/><path d="M3 7.5a5 5 0 0 0 10 0M8 12.5v2"/></svg></span><div><b>Mute</b><div class="t11">Mic is live</div></div></div>
+<div class="tile"><span class="ic"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4.5 6.5a3.5 3.5 0 1 1 7 0c0 2-2 2.5-2 4.5a2 2 0 0 1-3.5 1.3"/><path d="M6.5 6.8a1.5 1.5 0 0 1 3 0"/></svg></span><div><b>Compare</b><div class="t11">Hold for raw</div></div></div>
+</div>
+<div class="tile"><span class="ic"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 10V8a5.5 5.5 0 0 1 11 0v2"/><rect x="2" y="9.5" width="3" height="4.5" rx="1.2"/><rect x="11" y="9.5" width="3" height="4.5" rx="1.2"/></svg></span><div><b>Listen</b><div class="t11">Hear what apps hear</div></div></div>
+<div style="height:1px;background:var(--m-line);margin-top:4px"></div>
+<div class="row t13"><span>Settings…</span><span style="color:var(--m-sub)">⌘,</span></div>
+<div class="row t13"><span>Quit Hush</span><span style="color:var(--m-sub)">⌘Q</span></div>
+</div>
+</div>
+</div>
+</div>
+
+<section class="tint">
+<div class="wrap flow">
+<div>
+<h2>Works in any app that uses a microphone.</h2>
+<p>Hush cleans up your real microphone and feeds a virtual one called Hush Mic. Apps pick Hush Mic as their input, or get it automatically if they follow the Mac's default.</p>
+</div>
+<div class="chain">
+<span class="pill">Your microphone</span>
+<svg class="arrow" width="28" height="14" viewBox="0 0 28 14" fill="none" aria-hidden="true"><path d="M1 7h25M20 1.5 26 7l-6 5.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<span class="pill on"><svg viewBox="0 0 100 100" width="30" height="30" aria-hidden="true"><circle cx="50" cy="50" r="50"/><g transform="translate(50 50)"><rect x="-28" y="-5" width="6" height="10" rx="3"/><rect x="-18" y="-12" width="6" height="24" rx="3"/><rect x="-8" y="-22" width="6" height="44" rx="3"/><rect x="2" y="-11" width="6" height="22" rx="3"/><rect x="12" y="-17" width="6" height="34" rx="3"/><rect x="22" y="-6" width="6" height="12" rx="3"/></g></svg>Hush Mic</span>
+<svg class="arrow a" width="28" height="14" viewBox="0 0 28 14" fill="none" aria-hidden="true"><path d="M1 7h25M20 1.5 26 7l-6 5.5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<span class="pill end">Any app</span>
+</div>
+<div class="cloud">
+<span>Works in</span>
+<ul>
+<li><svg viewBox="0 8.9 24 6.2" width="62" height="16" role="img" aria-label="Zoom"><path d="M5.033 14.649H.743a.74.74 0 0 1-.686-.458.74.74 0 0 1 .16-.808L3.19 10.41H1.06A1.06 1.06 0 0 1 0 9.35h3.957c.301 0 .57.18.686.458a.74.74 0 0 1-.161.808L1.51 13.59h2.464c.585 0 1.06.475 1.06 1.06zM24 11.338c0-1.14-.927-2.066-2.066-2.066-.61 0-1.158.265-1.537.686a2.061 2.061 0 0 0-1.536-.686c-1.14 0-2.066.926-2.066 2.066v3.311a1.06 1.06 0 0 0 1.06-1.06v-2.251a1.004 1.004 0 0 1 2.013 0v2.251c0 .586.474 1.06 1.06 1.06v-3.311a1.004 1.004 0 0 1 2.012 0v2.251c0 .586.475 1.06 1.06 1.06zM16.265 12a2.728 2.728 0 1 1-5.457 0 2.728 2.728 0 0 1 5.457 0zm-1.06 0a1.669 1.669 0 1 0-3.338 0 1.669 1.669 0 0 0 3.338 0zm-4.82 0a2.728 2.728 0 1 1-5.458 0 2.728 2.728 0 0 1 5.457 0zm-1.06 0a1.669 1.669 0 1 0-3.338 0 1.669 1.669 0 0 0 3.338 0z"/></svg></li>
+<li><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5.53 2.13 0 7.75h5.53zm.398 0v5.62h7.608v3.65l5.47-4.45c-.014-1.22.031-2.25-.025-3.46-.148-1.09-1.287-1.47-2.236-1.36zM23.1 4.32c-.802.295-1.358.995-2.047 1.49-2.506 2.05-4.982 4.12-7.468 6.19 3.025 2.59 6.04 5.18 9.065 7.76 1.218.671 1.428-.814 1.328-1.64v-13a.828.828 0 0 0-.877-.825zM.038 8.15v7.7h5.53v-7.7zm13.577 8.1H6.008v5.62c3.864-.006 7.737.011 11.58-.009 1.02-.07 1.618-1.12 1.468-2.07v-2.51l-5.47-4.68v3.65zm-13.577 0c.02 1.44-.041 2.88.033 4.31.162.948 1.158 1.43 2.047 1.31h3.464v-5.62z"/></svg>Google Meet</li>
+<li><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M20.625 8.127q-.55 0-1.025-.205-.475-.205-.832-.563-.358-.357-.563-.832Q18 6.053 18 5.502q0-.54.205-1.02t.563-.837q.357-.358.832-.563.474-.205 1.025-.205.54 0 1.02.205t.837.563q.358.357.563.837.205.48.205 1.02 0 .55-.205 1.025-.205.475-.563.832-.357.358-.837.563-.48.205-1.02.205zm0-3.75q-.469 0-.797.328-.328.328-.328.797 0 .469.328.797.328.328.797.328.469 0 .797-.328.328-.328.328-.797 0-.469-.328-.797-.328-.328-.797-.328zM24 10.002v5.578q0 .774-.293 1.46-.293.685-.803 1.194-.51.51-1.195.803-.686.293-1.459.293-.445 0-.908-.105-.463-.106-.85-.329-.293.95-.855 1.729-.563.78-1.319 1.336-.756.557-1.67.861-.914.305-1.898.305-1.148 0-2.162-.398-1.014-.399-1.805-1.102-.79-.703-1.312-1.664t-.674-2.086h-5.8q-.411 0-.704-.293T0 16.881V6.873q0-.41.293-.703t.703-.293h8.59q-.34-.715-.34-1.5 0-.727.275-1.365.276-.639.75-1.114.475-.474 1.114-.75.638-.275 1.365-.275t1.365.275q.639.276 1.114.75.474.475.75 1.114.275.638.275 1.365t-.275 1.365q-.276.639-.75 1.113-.475.475-1.114.75-.638.276-1.365.276-.188 0-.375-.024-.188-.023-.375-.058v1.078h10.875q.469 0 .797.328.328.328.328.797zM12.75 2.373q-.41 0-.78.158-.368.158-.638.434-.27.275-.428.639-.158.363-.158.773 0 .41.158.78.159.368.428.638.27.27.639.428.369.158.779.158.41 0 .773-.158.364-.159.64-.428.274-.27.433-.639.158-.369.158-.779 0-.41-.158-.773-.159-.364-.434-.64-.275-.275-.639-.433-.363-.158-.773-.158zM6.937 9.814h2.25V7.94H2.814v1.875h2.25v6h1.875zm10.313 7.313v-6.75H12v6.504q0 .41-.293.703t-.703.293H8.309q.152.809.556 1.5.405.691.985 1.19.58.497 1.318.779.738.281 1.582.281.926 0 1.746-.352.82-.351 1.436-.966.615-.616.966-1.43.352-.815.352-1.752zm5.25-1.547v-5.203h-3.75v6.855q.305.305.691.452.387.146.809.146.469 0 .879-.176.41-.175.715-.48.304-.305.48-.715t.176-.879Z"/></svg>Microsoft Teams</li>
+<li><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg>Slack</li>
+<li><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg>Discord</li>
+<li><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>WhatsApp</li>
+<li><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-5.344 9.257c.206.01.413.016.621.016 6.627 0 12-5.373 12-12 0-1.54-.29-3.011-.818-4.364zM12 16.364a4.364 4.364 0 1 1 0-8.728 4.364 4.364 0 0 1 0 8.728Z"/></svg>Chrome</li>
+<li><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm-.004.953h.006c.063 0 .113.05.113.113v1.842c0 .063-.05.113-.113.113h-.006a.112.112 0 0 1-.113-.113V1.066c0-.063.05-.113.113-.113zm-.941.041c.056.001.104.046.11.104l.077.918a.112.112 0 0 1-.101.12h-.01a.11.11 0 0 1-.12-.1l-.08-.919a.112.112 0 0 1 .102-.12h.01l.012-.003zm1.892 0H12.965a.113.113 0 0 1 .103.121l-.08.92a.111.111 0 0 1-.12.102h-.009a.111.111 0 0 1-.101-.121l.078-.92a.112.112 0 0 1 .111-.102zm-2.838.123a.11.11 0 0 1 .106.092l.32 1.818c.01.06-.03.119-.09.13l-.01.001a.111.111 0 0 1-.128-.09l-.32-1.818a.111.111 0 0 1 .09-.129l.01-.002a.103.103 0 0 1 .022-.002zm3.784.002h.021l.008.002c.061.01.102.07.092.131l-.32 1.814c-.011.062-.07.101-.132.09h-.005a.113.113 0 0 1-.092-.13l.32-1.815a.111.111 0 0 1 .108-.092zm-4.715.203c.048.002.09.035.103.084l.239.893a.112.112 0 0 1-.079.139l-.005.001a.114.114 0 0 1-.14-.08l-.237-.894a.11.11 0 0 1 .078-.137l.006-.002a.123.123 0 0 1 .035-.004zm5.644 0a.11.11 0 0 1 .033.004l.006.002c.06.016.097.079.08.139l-.24.892a.112.112 0 0 1-.137.08l-.005-.002a.114.114 0 0 1-.08-.138l.24-.893a.112.112 0 0 1 .103-.084zm-6.562.285a.11.11 0 0 1 .107.073L9 3.42a.107.107 0 0 1-.064.139l-.012.005a.11.11 0 0 1-.14-.066L8.15 1.76a.11.11 0 0 1 .065-.14l.014-.005a.106.106 0 0 1 .03-.008zm7.469.002c.014 0 .028.001.042.006l.012.006c.057.02.087.082.067.139l-.633 1.738a.11.11 0 0 1-.14.066l-.013-.003A.11.11 0 0 1 15 3.42l.633-1.738a.108.108 0 0 1 .096-.073zm-8.352.366a.112.112 0 0 1 .105.064l.393.838a.112.112 0 0 1-.055.148l-.008.004a.11.11 0 0 1-.146-.054l-.395-.838a.112.112 0 0 1 .055-.149l.008-.004a.11.11 0 0 1 .043-.01zm9.246 0a.11.11 0 0 1 .043.01l.006.003a.11.11 0 0 1 .053.149l-.391.838a.112.112 0 0 1-.148.054l-.006-.002a.112.112 0 0 1-.055-.148l.393-.84a.112.112 0 0 1 .105-.064zm-10.092.44c.04-.002.08.018.102.056l.922 1.597a.113.113 0 0 1-.041.155l-.006.002a.113.113 0 0 1-.154-.041l-.922-1.598a.113.113 0 0 1 .04-.154l.007-.002a.11.11 0 0 1 .052-.016zm10.94.001c.018 0 .035.004.052.014l.004.002a.114.114 0 0 1 .041.156l-.923 1.596a.114.114 0 0 1-.157.04l-.004-.001a.112.112 0 0 1-.04-.155l.925-1.595a.113.113 0 0 1 .102-.057zM5.729 2.93a.11.11 0 0 1 .093.047l.532.753a.114.114 0 0 1-.028.159l-.004.002a.114.114 0 0 1-.158-.028l-.531-.752a.114.114 0 0 1 .027-.158l.006-.002a.113.113 0 0 1 .063-.021zm12.542 0a.11.11 0 0 1 .063.02l.006.003a.112.112 0 0 1 .027.156l-.531.756a.112.112 0 0 1-.156.028l-.006-.004a.112.112 0 0 1-.028-.157l.532-.755a.11.11 0 0 1 .093-.047zm.747.578a.11.11 0 0 1 .08.027l.006.004c.047.04.053.111.013.158L17.932 5.11a.11.11 0 0 1-.157.016l-.005-.006a.11.11 0 0 1-.014-.156l1.185-1.414a.114.114 0 0 1 .077-.041zM4.984 3.51a.11.11 0 0 1 .077.039L6.244 4.96a.112.112 0 0 1-.014.158l-.003.004a.112.112 0 0 1-.159-.014L4.883 3.697a.112.112 0 0 1 .013-.158l.006-.004a.111.111 0 0 1 .082-.025zm-.714.64c.027 0 .055.01.076.032l.658.66a.107.107 0 0 1 0 .152l-.01.01a.107.107 0 0 1-.152 0l-.66-.658a.11.11 0 0 1 0-.155l.01-.01a.111.111 0 0 1 .078-.03zm15.462 0c.028 0 .055.01.077.032l.007.007a.109.109 0 0 1 0 .155l-.658.66a.109.109 0 0 1-.154 0l-.008-.008a.109.109 0 0 1 0-.154l.658-.66a.11.11 0 0 1 .078-.032zm.707.66c.038 0 .071.02.092.075a.112.112 0 0 1-.023.117l-7.606 8.08c-3.084 2.024-6.149 4.04-9.222 6.05-.078.051-.17.082-.211-.028a.112.112 0 0 1 .023-.118l7.594-8.08c3.084-2.023 6.161-4.039 9.234-6.049a.247.247 0 0 1 .12-.046zm-16.824.045a.109.109 0 0 1 .08.026l1.416 1.187a.11.11 0 0 1 .014.157l-.006.005a.11.11 0 0 1-.156.014L3.549 5.057a.109.109 0 0 1-.014-.155l.006-.007a.108.108 0 0 1 .074-.04zm17.336.756c.036 0 .072.017.094.05l.004.003a.114.114 0 0 1-.028.158l-.753.53a.112.112 0 0 1-.157-.028l-.004-.004a.114.114 0 0 1 .028-.158l.754-.53a.113.113 0 0 1 .062-.02zm-17.904.002c.02 0 .042.007.06.02l.76.531c.05.035.06.103.026.152l-.006.01a.109.109 0 0 1-.153.026l-.76-.532a.109.109 0 0 1-.025-.152l.006-.01a.108.108 0 0 1 .092-.045zm-.512.803c.018 0 .036.006.053.016l1.596.923a.111.111 0 0 1 .04.153l-.003.006a.111.111 0 0 1-.153.04L2.473 6.63a.111.111 0 0 1-.041-.152l.004-.006a.11.11 0 0 1 .1-.055zm18.932 0a.11.11 0 0 1 .1.055l.001.004a.113.113 0 0 1-.04.154l-1.596.926a.113.113 0 0 1-.155-.041l-.002-.004a.113.113 0 0 1 .041-.155l1.596-.925a.115.115 0 0 1 .055-.014zm-19.373.846c.014 0 .029.003.043.01l.838.392a.11.11 0 0 1 .052.147l-.004.01a.11.11 0 0 1-.146.052l-.838-.393a.11.11 0 0 1-.053-.146l.004-.01a.109.109 0 0 1 .104-.062zm19.81.002a.11.11 0 0 1 .106.062l.002.008a.11.11 0 0 1-.053.146l-.838.393a.11.11 0 0 1-.146-.053l-.004-.008a.11.11 0 0 1 .052-.146l.838-.393a.11.11 0 0 1 .043-.01zm-20.183.88c.014 0 .028.001.043.006l1.732.631a.112.112 0 0 1 .067.145l-.002.006a.11.11 0 0 1-.143.066l-1.732-.63a.113.113 0 0 1-.069-.145l.002-.004a.115.115 0 0 1 .102-.074zm20.549 0a.113.113 0 0 1 .11.075l.003.004a.115.115 0 0 1-.069.146l-1.732.629a.112.112 0 0 1-.145-.066l-.001-.006a.113.113 0 0 1 .068-.145l1.732-.63a.11.11 0 0 1 .034-.006zm-20.836.909a.11.11 0 0 1 .033.004l.892.24c.06.016.096.077.08.137l-.002.007a.11.11 0 0 1-.136.079l-.895-.239a.113.113 0 0 1-.078-.138l.002-.006a.113.113 0 0 1 .104-.084zm21.13.002a.115.115 0 0 1 .106.084v.004a.112.112 0 0 1-.078.138l-.893.239a.112.112 0 0 1-.138-.079v-.005a.112.112 0 0 1 .078-.14l.892-.237a.11.11 0 0 1 .033-.004zm-21.335.93.023.001 1.814.323c.062.01.101.069.09.13v.006a.111.111 0 0 1-.13.09l-1.815-.322a.113.113 0 0 1-.092-.131l.002-.006a.11.11 0 0 1 .108-.092zm21.519.001h.022c.052.002.1.038.109.092v.006c.01.062-.03.12-.092.13l-1.814.321a.113.113 0 0 1-.131-.092v-.005a.113.113 0 0 1 .092-.131l1.814-.32zm-21.644.944h.011l.922.084a.11.11 0 0 1 .102.119l-.002.01a.11.11 0 0 1-.121.1l-.922-.083a.11.11 0 0 1-.1-.12v-.009a.111.111 0 0 1 .11-.101zm21.779.002h.012c.056 0 .106.043.11.101v.008a.111.111 0 0 1-.1.121l-.923.08a.111.111 0 0 1-.12-.101v-.008a.111.111 0 0 1 .1-.121l.92-.08zm-11.82.73L6.091 16.95c2.02-1.324 4.039-2.646 6.066-3.976l-1.095-1.31zm11.87.219c.063 0 .114.05.114.113v.004c0 .063-.05.113-.113.113l-1.844.004a.113.113 0 0 1-.113-.113v-.004c0-.063.05-.113.113-.113l1.844-.004zm-21.869.002h1.844c.062 0 .112.05.112.111v.008c0 .062-.05.111-.112.111H1.064a.111.111 0 0 1-.11-.111v-.008c0-.061.049-.111.11-.111zm.952.875h.011a.11.11 0 0 1 .11.101v.006a.111.111 0 0 1-.102.121l-.922.08a.11.11 0 0 1-.119-.101l-.002-.006a.111.111 0 0 1 .102-.121l.922-.08zm19.955 0h.011l.922.08a.11.11 0 0 1 .102.119v.008a.112.112 0 0 1-.121.101l-.922-.08a.11.11 0 0 1-.102-.119v-.008a.111.111 0 0 1 .11-.101zm-18.924.705c.053.001.098.04.107.094l.002.004c.011.061-.03.12-.092.13l-1.812.32a.113.113 0 0 1-.13-.091v-.004a.115.115 0 0 1 .09-.133l1.811-.318a.117.117 0 0 1 .024-.002zm17.902 0c.008 0 .016 0 .024.002l1.816.32c.061.011.1.07.09.131v.004a.113.113 0 0 1-.131.092l-1.816-.32a.112.112 0 0 1-.09-.131v-.004a.113.113 0 0 1 .107-.094zM2.332 14.477a.11.11 0 0 1 .104.082l.002.005c.016.06-.02.121-.08.137l-.891.24a.112.112 0 0 1-.137-.08l-.002-.006a.112.112 0 0 1 .08-.136l.89-.239a.112.112 0 0 1 .034-.003zm19.332 0c.011 0 .024 0 .035.003l.893.239c.06.016.096.077.08.136l-.002.006a.111.111 0 0 1-.137.078l-.894-.238a.111.111 0 0 1-.078-.137l.002-.005a.109.109 0 0 1 .101-.082zm-18.213.517a.11.11 0 0 1 .11.074l.002.004a.112.112 0 0 1-.067.145l-1.732.63a.113.113 0 0 1-.145-.068l-.002-.004a.113.113 0 0 1 .069-.144L3.418 15a.11.11 0 0 1 .033-.006zm17.086 0c.015 0 .029 0 .043.006l1.734.63a.111.111 0 0 1 .067.143l-.002.008a.111.111 0 0 1-.143.067l-1.734-.631a.111.111 0 0 1-.066-.143l.002-.008a.111.111 0 0 1 .1-.072zM2.92 16.117a.109.109 0 0 1 .103.063l.004.01a.108.108 0 0 1-.052.144l-.838.393a.11.11 0 0 1-.147-.055l-.004-.008a.11.11 0 0 1 .053-.146l.838-.391a.112.112 0 0 1 .043-.01zm18.158 0a.11.11 0 0 1 .043.01l.838.39c.056.027.08.093.055.149l-.002.004a.112.112 0 0 1-.149.055l-.838-.391a.112.112 0 0 1-.054-.148l.002-.004a.112.112 0 0 1 .105-.065zm-16.957.315c.04-.001.078.02.1.056l.004.004a.11.11 0 0 1-.041.153l-1.596.921a.113.113 0 0 1-.154-.04l-.002-.005a.113.113 0 0 1 .04-.154l1.596-.922a.109.109 0 0 1 .053-.013zm15.756 0c.018 0 .036.004.053.013l1.597.924a.11.11 0 0 1 .041.152l-.002.004a.11.11 0 0 1-.152.041l-1.598-.921a.113.113 0 0 1-.04-.155l.001-.002a.111.111 0 0 1 .1-.056zm.328 1.193a.11.11 0 0 1 .06.021l.758.534c.05.035.061.102.026.152l-.004.008a.111.111 0 0 1-.154.027l-.756-.535a.109.109 0 0 1-.028-.152l.006-.008a.11.11 0 0 1 .092-.047zm-16.412.002c.035 0 .072.016.094.047l.004.008a.109.109 0 0 1-.028.152l-.756.531a.108.108 0 0 1-.152-.025l-.006-.008a.109.109 0 0 1 .028-.152l.755-.534a.107.107 0 0 1 .061-.019zm15.162.102a.112.112 0 0 1 .082.025l1.414 1.187a.11.11 0 0 1 .014.157l-.004.004a.113.113 0 0 1-.158.013L18.89 17.93a.11.11 0 0 1-.014-.157l.004-.005a.108.108 0 0 1 .074-.04zm-12.812 1.12a.11.11 0 0 1 .08.026l.007.008a.11.11 0 0 1 .014.154L5.06 20.451a.11.11 0 0 1-.155.012l-.008-.006a.11.11 0 0 1-.013-.154l1.185-1.414a.11.11 0 0 1 .075-.04zm11.703 0c.032 0 .065.015.088.042l1.181 1.41c.04.048.035.12-.013.16l-.002.002a.114.114 0 0 1-.16-.014l-1.182-1.41a.114.114 0 0 1 .013-.16l.002-.002a.115.115 0 0 1 .073-.027zm-12.928.114c.027 0 .054.01.074.031l.014.012a.107.107 0 0 1 0 .15l-.662.66a.105.105 0 0 1-.149 0l-.011-.011a.105.105 0 0 1 0-.149l.66-.662a.105.105 0 0 1 .074-.031zm14.164 0c.027 0 .053.01.074.031l.66.662a.106.106 0 0 1 0 .15l-.011.012a.106.106 0 0 1-.15-.002l-.66-.66a.106.106 0 0 1 .001-.15l.01-.012a.108.108 0 0 1 .076-.031zm-11.627.797c.018 0 .034.006.05.015l.007.004a.11.11 0 0 1 .04.15l-.921 1.598a.11.11 0 0 1-.15.041l-.008-.004a.111.111 0 0 1-.04-.152l.922-1.596a.113.113 0 0 1 .1-.056zm9.088.002a.11.11 0 0 1 .1.054l.925 1.596a.113.113 0 0 1-.04.154h-.005a.11.11 0 0 1-.152-.039l-.926-1.595a.113.113 0 0 1 .041-.155l.004-.002a.108.108 0 0 1 .053-.013zm-10.285.324c.021 0 .043.008.062.021l.004.002c.051.036.063.106.028.157l-.53.755a.112.112 0 0 1-.156.028l-.004-.002a.112.112 0 0 1-.027-.156l.53-.756a.113.113 0 0 1 .093-.05zm11.484.002c.036 0 .072.015.094.047l.53.756c.035.05.023.12-.028.156l-.004.002a.112.112 0 0 1-.156-.028l-.53-.755a.112.112 0 0 1 .028-.157l.004-.002a.112.112 0 0 1 .062-.02zm-8.863.342a.11.11 0 0 1 .043.006l.012.005c.056.02.084.081.064.137l-.633 1.74a.105.105 0 0 1-.136.063l-.014-.004a.106.106 0 0 1-.065-.137l.633-1.74a.107.107 0 0 1 .096-.07zm6.232 0a.107.107 0 0 1 .106.07l.633 1.738a.107.107 0 0 1-.065.137l-.015.006a.107.107 0 0 1-.137-.065L15 20.578a.107.107 0 0 1 .064-.137l.014-.005a.117.117 0 0 1 .033-.006zm-4.695.41c.008 0 .014 0 .021.002l.006.002c.062.01.101.067.09.129l-.318 1.812a.113.113 0 0 1-.131.092l-.004-.002a.111.111 0 0 1-.092-.129l.32-1.812a.113.113 0 0 1 .108-.094zm3.146.002c.008-.002.015 0 .022 0a.111.111 0 0 1 .107.092l.32 1.812c.012.061-.03.12-.091.131l-.004.002a.113.113 0 0 1-.13-.092l-.321-1.812a.113.113 0 0 1 .092-.131l.005-.002zm-5.79.119a.11.11 0 0 1 .042.01l.004.002a.114.114 0 0 1 .055.15l-.393.834a.112.112 0 0 1-.148.055l-.004-.002a.112.112 0 0 1-.055-.149l.393-.836a.112.112 0 0 1 .105-.064zm8.458 0a.108.108 0 0 1 .104.062l.39.84a.11.11 0 0 1-.052.147l-.008.004a.11.11 0 0 1-.146-.055l-.391-.838a.11.11 0 0 1 .053-.146l.008-.004a.11.11 0 0 1 .042-.01zm-4.236.018H12c.063 0 .115.05.115.113l.002 1.84c0 .063-.05.113-.113.113h-.006a.113.113 0 0 1-.113-.113l-.004-1.838c0-.063.05-.115.113-.115zm-2.592.578c.011 0 .022 0 .034.004l.005.002c.06.016.095.077.079.136l-.24.893a.111.111 0 0 1-.137.078l-.006-.002a.111.111 0 0 1-.078-.137l.24-.89a.113.113 0 0 1 .103-.084zm5.196.002a.11.11 0 0 1 .103.082l.24.89a.11.11 0 0 1-.078.137l-.006.002a.11.11 0 0 1-.136-.078l-.24-.89a.11.11 0 0 1 .078-.138l.005-.002a.112.112 0 0 1 .034-.003zm-3.475.302h.01l.008.002c.061.006.107.06.101.121l-.08.92a.112.112 0 0 1-.121.102h-.008a.11.11 0 0 1-.1-.121l.08-.922a.111.111 0 0 1 .11-.102zm1.736 0h.02a.11.11 0 0 1 .107.102l.08.924a.11.11 0 0 1-.101.119l-.008.002a.11.11 0 0 1-.12-.102l-.08-.924a.112.112 0 0 1 .102-.12z"/></svg>Safari</li>
+<li><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12.002 0a11.998 12 0 106.629 22l1.98 1.97h3.139l.25-.25v-3.15l-2-1.98A11.938 11.94 0 0024 12 11.998 12 0 0012.002 0m0 4.2a7.799 7.8 0 016.949 11.33l-5.25-5.26a2.404 2.404 0 10-3.4 3.4l5.27 5.26a7.759 7.76 0 01-3.57.87 7.799 7.8 0 010-15.6z"/></svg>QuickTime</li>
+<li><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M24 10.665h-7.018l6.078-3.509-1.335-2.312-6.078 3.509 3.508-6.077L16.843.94l-3.508 6.077V0h-2.67v7.018L7.156.94 4.844 2.275l3.509 6.077-6.078-3.508L.94 7.156l6.078 3.509H0v2.67h7.017L.94 16.844l1.335 2.313 6.077-3.508-3.509 6.077 2.312 1.335 3.509-6.078V24h2.67v-7.017l3.508 6.077 2.312-1.335-3.509-6.078 6.078 3.509 1.335-2.313-6.077-3.508h7.017v-2.67H24zm-12 4.966a3.645 3.645 0 1 1 0-7.29 3.645 3.645 0 0 1 0 7.29z"/></svg>Loom</li>
+<li><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12,24C5.383,24,0,18.617,0,12S5.383,0,12,0s12,5.383,12,12S18.617,24,12,24z M12,1.109 C5.995,1.109,1.11,5.995,1.11,12C1.11,18.005,5.995,22.89,12,22.89S22.89,18.005,22.89,12C22.89,5.995,18.005,1.109,12,1.109z M6.182,5.99c0.352-1.698,1.503-3.229,3.05-3.996c-0.269,0.273-0.595,0.483-0.844,0.78c-1.02,1.1-1.48,2.692-1.199,4.156 c0.355,2.235,2.455,4.06,4.732,4.028c1.765,0.079,3.485-0.937,4.348-2.468c1.848,0.063,3.645,1.017,4.7,2.548 c0.54,0.799,0.962,1.736,0.991,2.711c-0.342-1.295-1.202-2.446-2.375-3.095c-1.135-0.639-2.529-0.802-3.772-0.425 c-1.56,0.448-2.849,1.723-3.293,3.293c-0.377,1.25-0.216,2.628,0.377,3.772c-0.825,1.429-2.315,2.449-3.932,2.756 c-1.244,0.261-2.551,0.059-3.709-0.464c1.036,0.302,2.161,0.355,3.191-0.011c1.381-0.457,2.522-1.567,3.024-2.935 c0.556-1.49,0.345-3.261-0.591-4.54c-0.7-1.007-1.803-1.717-3.002-1.969c-0.38-0.068-0.764-0.098-1.148-0.134 c-0.611-1.231-0.834-2.66-0.528-3.996L6.182,5.99z"/></svg>OBS Studio</li>
+<li><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill-rule="evenodd" d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zM6 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0zM10.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0zM15 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0z"/></svg>Anything else</li>
+</ul>
+</div>
+</div>
+</section>
+
+<section class="wrap split">
+<div class="cmpcol">
+<div><span>Raw mic</span><div class="cmp" aria-hidden="true"><i style="--h:15px"></i><i style="--h:23px"></i><i style="--h:17px"></i><i style="--h:21px"></i><i style="--h:56px"></i><i style="--h:82px"></i><i style="--h:63px"></i><i style="--h:36px"></i><i style="--h:17px"></i><i style="--h:18px"></i><i style="--h:21px"></i><i style="--h:30px"></i><i style="--h:57px"></i><i style="--h:86px"></i><i style="--h:51px"></i><i style="--h:76px"></i><i style="--h:41px"></i><i style="--h:23px"></i><i style="--h:18px"></i><i style="--h:18px"></i><i style="--h:22px"></i><i style="--h:23px"></i><i style="--h:53px"></i><i style="--h:59px"></i><i style="--h:45px"></i><i style="--h:23px"></i><i style="--h:15px"></i><i style="--h:17px"></i><i style="--h:20px"></i><i style="--h:19px"></i><i style="--h:16px"></i><i style="--h:33px"></i><i style="--h:41px"></i><i style="--h:66px"></i><i style="--h:69px"></i><i style="--h:65px"></i><i style="--h:58px"></i><i style="--h:46px"></i><i style="--h:38px"></i><i style="--h:19px"></i><i style="--h:22px"></i><i style="--h:20px"></i><i style="--h:20px"></i><i style="--h:19px"></i><i style="--h:53px"></i><i style="--h:63px"></i><i style="--h:55px"></i><i style="--h:38px"></i><i style="--h:22px"></i><i style="--h:23px"></i><i style="--h:16px"></i><i style="--h:22px"></i><i style="--h:15px"></i><i style="--h:23px"></i><i style="--h:34px"></i><i style="--h:51px"></i><i style="--h:53px"></i><i style="--h:70px"></i><i style="--h:67px"></i><i style="--h:39px"></i><i style="--h:21px"></i><i style="--h:17px"></i><i style="--h:15px"></i><i style="--h:17px"></i><i style="--h:21px"></i><i style="--h:63px"></i><i style="--h:81px"></i><i style="--h:66px"></i><i style="--h:34px"></i><i style="--h:18px"></i><i style="--h:23px"></i><i style="--h:16px"></i></div></div>
+<div><span class="a">Hush Mic</span><div class="cmp c" aria-hidden="true"><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:19px;--o:1"></i><i style="--h:56px;--o:1"></i><i style="--h:82px;--o:1"></i><i style="--h:63px;--o:1"></i><i style="--h:36px;--o:1"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:30px;--o:1"></i><i style="--h:57px;--o:1"></i><i style="--h:86px;--o:1"></i><i style="--h:51px;--o:1"></i><i style="--h:76px;--o:1"></i><i style="--h:41px;--o:1"></i><i style="--h:11px;--o:1"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:23px;--o:1"></i><i style="--h:53px;--o:1"></i><i style="--h:59px;--o:1"></i><i style="--h:45px;--o:1"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:33px;--o:1"></i><i style="--h:41px;--o:1"></i><i style="--h:66px;--o:1"></i><i style="--h:69px;--o:1"></i><i style="--h:65px;--o:1"></i><i style="--h:58px;--o:1"></i><i style="--h:46px;--o:1"></i><i style="--h:38px;--o:1"></i><i style="--h:18px;--o:1"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:12px;--o:1"></i><i style="--h:53px;--o:1"></i><i style="--h:63px;--o:1"></i><i style="--h:55px;--o:1"></i><i style="--h:38px;--o:1"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:23px;--o:1"></i><i style="--h:34px;--o:1"></i><i style="--h:51px;--o:1"></i><i style="--h:53px;--o:1"></i><i style="--h:70px;--o:1"></i><i style="--h:67px;--o:1"></i><i style="--h:39px;--o:1"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:21px;--o:1"></i><i style="--h:63px;--o:1"></i><i style="--h:81px;--o:1"></i><i style="--h:66px;--o:1"></i><i style="--h:34px;--o:1"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i><i style="--h:6px;--o:0.3"></i></div></div>
+<p>An illustration, not a recording.</p>
+</div>
+<div class="menulist">
+<h2>In the menu</h2>
+<ul>
+<li><b>Strength</b><span>Light, Medium or Max. Pick how much noise gets taken out.</span></li>
+<li><b>Compare</b><span>Hold it to send the raw mic instead, and hear the difference.</span></li>
+<li><b>Listen</b><span>Hear what apps hear, in your headphones.</span></li>
+<li><b>Mute</b><span>Silence to every app at once.</span></li>
+<li><b>Presets</b><span>Save an audio setup and switch between them.</span></li>
+</ul>
+</div>
+</section>
+
+<section class="wrap more">
+<h2>Beyond the menu</h2>
+<ul class="grid">
+<li><b>Two noise-removal engines</b><span>Switch between Apple's built-in voice isolation and DeepFilterNet 3.</span></li>
+<li><b>Global keyboard shortcuts</b><span>Control it without opening the menu.</span></li>
+<li><b>Stream Deck plugin</b><span>Toggle, strength, mute and a live level meter on an Elgato Stream Deck.</span></li>
+<li><b>Command line tool</b><span>hush-cli runs the same engines over a WAV file for A/B comparisons.</span></li>
+<li><b>Processed on your Mac</b><span>The noise removal runs on your own computer.</span></li>
+<li><b>Only your mic</b><span>No recording, transcription or meeting notes. Mic in, clean mic out.</span></li>
+</ul>
+</section>
+
+<section class="tint">
+<div class="build">
+<h2>Build it yourself</h2>
+<p>Hush was built for one person's desk and is shared as-is. There is no installer or signed release. You need an Apple silicon Mac on macOS 15 or later, the Xcode command line tools, and <a href="https://rustup.rs">Rust</a>.</p>
+<pre>git clone --recursive https://github.com/erikreagan/hush.git
+cd hush
+
+scripts/install-driver.sh   # installs the virtual mic; needs admin
+scripts/build-app.sh        # builds build/Hush.app
+open build/Hush.app</pre>
+<p class="small">Full instructions, including the Stream Deck plugin, are in the <a href="https://github.com/erikreagan/hush#readme">README</a>.</p>
+</div>
+</section>
+</main>
+
+<footer class="wrap">
+Licensed under <a href="https://github.com/erikreagan/hush/blob/main/LICENSE">GPL-3.0</a>. Built on <a href="https://github.com/ExistentialAudio/BlackHole">BlackHole</a> and <a href="https://github.com/Rikorose/DeepFilterNet">DeepFilterNet</a>.
+</footer>
+<script>document.getElementById('today').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}).replace(',','')</script>
+</body>
+</html>

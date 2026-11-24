@@ -4,8 +4,8 @@ A Mac menu bar app that removes background noise from your microphone before any
 
 Hush listens to your real microphone, removes noise such as fans, typing and clicks, and feeds the
 clean audio into a virtual microphone called **Hush Mic**. Zoom, Meet, Slack, browsers and recording
-apps pick Hush Mic as their input, or use it automatically because Hush sets it as the Mac's default
-input.
+apps pick Hush Mic as their input, or get it automatically if they follow the Mac's default input,
+which Hush sets to Hush Mic.
 
 - Two noise-removal engines you can switch between: Apple's built-in voice isolation and
   [DeepFilterNet 3](https://github.com/Rikorose/DeepFilterNet)
