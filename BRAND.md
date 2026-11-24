@@ -12,7 +12,7 @@ it.
 - **Audience:** anyone who spends time on calls. Not only people who build software or own audio
   gear. Write and design for someone who has never heard the words "virtual microphone".
 - **Personality:** calm and quiet. The brand behaves like the product: it takes things away.
-- **Tagline:** Quieter calls. Every app.
+- **Tagline:** Your voice, minus the room.
 
 ### Principles
 
@@ -28,7 +28,7 @@ it.
 ## 2. Voice
 
 - **The product's voice.** No "I" or "we". "Hush removes…", "Pick Hush Mic…".
-- **Sentence case everywhere**, including headlines: "Quieter calls. Every app."
+- **Sentence case everywhere**, including headlines: "Your voice, minus the room."
 - **Plain words first.** Say "fans, typing and clicks", not "stationary and transient noise". Technical
   terms (virtual microphone, DeepFilterNet, latency) are welcome further down the page, after the
   plain version.
