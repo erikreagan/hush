@@ -103,7 +103,7 @@ h1{font-size:clamp(46px,6.6vw,88px);line-height:1.05;letter-spacing:-.025em;text
 .menulist span{color:var(--muted);font-size:17px}
 .more{padding-bottom:136px}
 .more h2{margin-bottom:40px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:0 48px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(max(280px,calc(50% - 24px)),100%),1fr));gap:0 48px}
 .grid li{padding:22px 0;border-top:1px solid var(--line)}
 .grid b{display:block;font-weight:500}
 .grid span{color:var(--muted);font-size:16px}
