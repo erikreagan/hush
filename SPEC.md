@@ -209,7 +209,7 @@ Pass-through (with HPF and gain still applied). Not a separate engine in the UI 
 
 Below the Mute and Compare tiles is a full-width **Listen** tile: it plays what apps hear (after engine, gain, and mute) to the output chosen in Settings → Advanced → Listen (default: the Mac's current output), through a third audio unit with its own drift correction. It is never restored on launch, and it adds a little delay on top of Hush's own, so the voice comes back as a short echo. Built 2026-11-23; **not yet heard by anyone.** The Mute tile shows its shortcut when one is assigned. The delay / drift / dropouts readout lives in Settings → Diagnostics, not the popover.
 
-`build/Hush.app/Contents/MacOS/Hush --snapshot out.png` renders the popover in several states, light and dark, to an image without starting audio or touching settings — use it to review UI changes.
+`build/Hush.app/Contents/MacOS/Hush --snapshot out.png` renders the popover in several states, light and dark, to an image without starting audio or touching settings — use it to review UI changes. `scripts/screenshots.sh` runs it and copies the per-view images (each popover state and settings pane, light and dark, 2x) into `site/screenshots/` for the website.
 
 **Settings window:**
 Built: Input, Processing (engine choice Apple · DeepFilterNet, hidden if DeepFilterNet failed to load; high-pass + output trim), System, Stream Deck (port, client count), and Diagnostics (delay, drift, under/overruns, engine parameter dump, and the 30-second test recorder with "Show Last Test in Finder"). Also built: Listen (on/off toggle + output picker) and Shortcuts (four recorders: noise removal on/off, mute, next strength, next preset). Not built: the DFN options, per-engine custom strength, and CPU %.
