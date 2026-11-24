@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- Source for site/og.png (the link preview image). Regenerate with:
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --hide-scrollbars \
+    --window-size=1200,630 --virtual-time-budget=5000 --screenshot=site/og.png scripts/og-image.html -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hush link preview image</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500&amp;family=Newsreader:opsz,wght@6..72,300..400&amp;display=swap">
+<style>
+body{margin:0}
+.card{width:1200px;height:630px;position:relative;overflow:hidden;background:#17121D;color:#ECE7F0;font-family:'Instrument Sans',system-ui,sans-serif}
+.layer{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+#bars{gap:14px}
+#bars div{width:14px;border-radius:7px;background:#3A2E48;flex-shrink:0}
+.words{flex-direction:column;gap:28px;text-align:center}
+h1{margin:0;font-family:Newsreader,Georgia,serif;font-weight:350;font-size:88px;line-height:1.05;letter-spacing:-0.025em}
+.url{font-size:20px;font-weight:500;color:#9A90A5}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="layer" id="bars"></div>
+<div class="layer words">
+<svg viewBox="0 0 100 100" width="64" height="64" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="#ECE7F0"/><g transform="translate(50 50)" fill="#17121D"><rect x="-28" y="-5" width="6" height="10" rx="3"/><rect x="-18" y="-12" width="6" height="24" rx="3"/><rect x="-8" y="-22" width="6" height="44" rx="3"/><rect x="2" y="-11" width="6" height="22" rx="3"/><rect x="12" y="-17" width="6" height="34" rx="3"/><rect x="22" y="-6" width="6" height="12" rx="3"/></g></svg>
+<h1>Quieter calls.<br>Every app.</h1>
+<span class="url">hush.erikreagan.com</span>
+</div>
+</div>
+<script>
+// Noise at both edges falls to nothing in the middle, where the words sit.
+for (var i = 0; i < 43; i++) {
+  var d = Math.abs(i - 21) / 21, n = ((i * 37) % 11) / 11;
+  var bar = document.createElement('div');
+  bar.style.height = (d < 0.55 ? 0 : Math.round(40 + ((d - 0.55) / 0.45) * 420 * (0.45 + 0.55 * n))) + 'px';
+  document.getElementById('bars').appendChild(bar);
+}
+</script>
+</body>
+</html>
