@@ -31,7 +31,7 @@
 body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.6 'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:inherit}
 p a,footer a{color:var(--accent)}p a:hover,footer a:hover{color:var(--ink)}
-a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
 h1,h2,.serif{font-family:Newsreader,Georgia,serif;font-weight:350}
 h1,h2,p,ul{margin:0}
 ul{list-style:none;padding:0}
@@ -101,12 +101,23 @@ h1{font-size:clamp(46px,6.6vw,88px);line-height:1.05;letter-spacing:-.025em;text
 .menulist li:last-child{border-bottom:1px solid var(--line)}
 .menulist b{flex:0 0 96px;font-weight:500}
 .menulist span{color:var(--muted);font-size:17px}
-.more{padding-bottom:136px}
+.more,.shots{padding-bottom:136px}
 .more h2{margin-bottom:40px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(max(280px,calc(50% - 24px)),100%),1fr));gap:0 48px}
 .grid li{padding:22px 0;border-top:1px solid var(--line)}
 .grid b{display:block;font-weight:500}
 .grid span{color:var(--muted);font-size:16px}
+.shothead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px 24px;margin-bottom:32px}
+.pick{display:inline-flex;flex-wrap:wrap;justify-content:center;gap:4px;padding:4px;border:1px solid var(--line);border-radius:24px}
+.pick button{font:inherit;font-size:15px;color:var(--muted);background:none;border:0;border-radius:999px;padding:7px 16px;cursor:pointer}
+.pick button:hover{color:var(--ink)}
+.pick button[aria-pressed=true]{background:var(--accent);color:var(--bg)}
+.shotstage{min-height:704px;padding:40px 24px;border-radius:28px;background:#E6DFEA;display:grid;place-items:center;margin-bottom:24px;transition:background .3s}
+.shotstage.dark{background:#332A3E}
+.shotstage img{grid-area:1/1;display:block;max-width:100%;height:auto;transition:opacity .4s;filter:drop-shadow(0 18px 36px rgba(20,10,30,.28))}
+.shotstage img.win{border-radius:12px}
+@media (prefers-reduced-motion:reduce){.shotstage,.shotstage img{transition:none}}
+.shots>.pick{display:flex;width:fit-content;margin:0 auto}
 .build{max-width:720px;margin:0 auto;padding:104px 32px}
 .build h2{margin-bottom:20px}
 .build p{margin-bottom:28px;color:var(--muted)}
@@ -122,9 +133,11 @@ footer{padding-top:32px;padding-bottom:56px;font-size:15px;color:var(--muted)}
 .lab{top:4px}.lab.l{left:20px}.lab.r{right:20px}
 .split{padding-top:80px;padding-bottom:80px}
 .flow,.build{padding-top:72px;padding-bottom:72px}
-.more{padding-bottom:80px}
+.more,.shots{padding-bottom:80px}
 .menulist li{gap:12px}.menulist b{flex-basis:84px}
 pre{padding:20px;border-radius:16px}
+.shotstage{min-height:540px;padding:28px 16px;border-radius:20px}
+.shots>.pick{display:grid;grid-template-columns:repeat(3,1fr);width:auto}
 }
 @media (max-width:520px){.zoom{zoom:.75}}
 @media (max-width:380px){.zoom{zoom:.68}}
@@ -245,6 +258,22 @@ pre{padding:20px;border-radius:16px}
 </div>
 </section>
 
+<section class="wrap shots">
+<div class="shothead">
+<h2>A closer look</h2>
+<div class="pick" role="group" aria-label="Screenshot appearance"><button type="button" data-dark="0" aria-pressed="true">Light</button><button type="button" data-dark="1" aria-pressed="false">Dark</button></div>
+</div>
+<div class="shotstage"><img src="screenshots/popover-on-light.png" width="300" alt="The Hush menu with noise removal on." loading="lazy"></div>
+<div class="pick" role="group" aria-label="Screenshot">
+<button type="button" data-view="popover-on" data-alt="The Hush menu with noise removal on." aria-pressed="true">Menu</button>
+<button type="button" data-view="popover-muted" data-alt="The Hush menu while muted: apps hear silence." aria-pressed="false">Muted</button>
+<button type="button" data-view="popover-listening" data-alt="The Hush menu with Listen on, playing the cleaned mic to headphones." aria-pressed="false">Listening</button>
+<button type="button" data-view="audio" data-alt="Audio settings: microphone, input level and trim, engine, high-pass filter and output trim." aria-pressed="false">Audio</button>
+<button type="button" data-view="presets" data-alt="Presets settings: three saved audio setups, one active." aria-pressed="false">Presets</button>
+<button type="button" data-view="general" data-alt="General settings: launch at login and default input behaviour." aria-pressed="false">General</button>
+</div>
+</section>
+
 <section class="wrap more">
 <h2>Beyond the menu</h2>
 <ul class="grid">
@@ -273,6 +302,36 @@ open build/Hush.app</pre>
 <footer class="wrap">
 Licensed under <a href="https://github.com/erikreagan/hush/blob/main/LICENSE">GPL-3.0</a>. Built on <a href="https://github.com/ExistentialAudio/BlackHole">BlackHole</a> and <a href="https://github.com/Rikorose/DeepFilterNet">DeepFilterNet</a>.
 </footer>
-<script>document.getElementById('today').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}).replace(',','')</script>
+<script>document.getElementById('today').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}).replace(',','')
+// Screenshot gallery: Light/Dark swaps the screenshots only; the page itself keeps following the system setting.
+;(function(){
+var stage=document.querySelector('.shotstage'),img=stage.querySelector('img'),buttons=document.querySelectorAll('.shots button'),view='popover-on',dark=matchMedia('(prefers-color-scheme:dark)').matches
+// Crossfade: the new image is stacked on the old one and fades in once loaded while the old one fades out.
+function show(){
+var win=view.indexOf('popover')<0
+img=new Image()
+img.width=win?640:300
+img.className=win?'win':''
+img.style.opacity=0
+img.onload=function(){
+var me=this
+if(me!=img)return me.remove()   // a later click overtook this one
+me.offsetWidth   // settle the starting opacity so the fade runs
+me.style.opacity=1
+stage.querySelectorAll('img').forEach(function(old){if(old!=me){old.style.opacity=0;setTimeout(function(){old.remove()},450)}})
+}
+img.src='screenshots/'+view+(dark?'-dark':'-light')+'.png'
+stage.appendChild(img)
+stage.className='shotstage'+(dark?' dark':'')
+buttons.forEach(function(b){
+var on=b.dataset.view?b.dataset.view==view:(b.dataset.dark=='1')==dark
+b.setAttribute('aria-pressed',on)
+if(on&&b.dataset.alt)img.alt=b.dataset.alt
+})
+}
+buttons.forEach(function(b){b.onclick=function(){if(b.getAttribute('aria-pressed')=='true')return;if(b.dataset.view)view=b.dataset.view;else dark=b.dataset.dark=='1';show()}})
+if(dark)show()
+})()
+</script>
 </body>
 </html>

@@ -323,6 +323,7 @@ enum Snapshot {
     static func runIfRequested() {
         let arguments = CommandLine.arguments
         guard let flag = arguments.firstIndex(of: "--snapshot"), flag + 1 < arguments.count else { return }
+        _ = ActiveLookingApp.shared
         func state(_ configure: (AppModel) -> Void) -> AppModel {
             let model = AppModel()
             (model.enabled, model.driverInstalled, model.hushMicIsDefault) = (true, true, true)
@@ -352,10 +353,18 @@ enum Snapshot {
         func write(_ root: some View, to path: String) {
             let view = NSHostingView(rootView: root)
             view.frame = NSRect(origin: .zero, size: view.fittingSize)
-            let window = NSWindow(contentRect: view.frame, styleMask: .borderless, backing: .buffered, defer: false)
+            let window = KeyLookingWindow(contentRect: view.frame, styleMask: .borderless, backing: .buffered, defer: false)
             window.contentView = view
+            window.setFrameOrigin(NSPoint(x: -20000, y: -20000))   // ordered in, as switches need, but far off any screen
+            window.orderFrontRegardless()
+            window.makeKey()
             view.layoutSubtreeIfNeeded()
-            guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { exit(1) }
+            // 2x by hand: an off-screen window's own bitmap is 1x, which is soft on the website.
+            let size = view.bounds.size
+            guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width) * 2, pixelsHigh: Int(size.height) * 2,
+                                                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                                colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { exit(1) }
+            bitmap.size = size
             view.cacheDisplay(in: view.bounds, to: bitmap)
             try? bitmap.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
         }
@@ -367,10 +376,18 @@ enum Snapshot {
             $0.renamePreset($0.presets[0].id, to: "Desk")
             $0.presets += [Preset(name: "Laptop", inputUID: "builtin", strength: .medium, engine: .apple), Preset(name: "Travel", inputUID: "usb")]
         }
-        for pane in SettingsPane.allCases {
-            for scheme in [ColorScheme.light, .dark] {
+        let base = (path as NSString).deletingPathExtension
+        for scheme in [ColorScheme.light, .dark] {
+            let suffix = scheme == .dark ? "dark" : "light"
+            for pane in SettingsPane.allCases {
                 write(SettingsView(model: settings, pane: pane).background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, scheme),
-                      to: (path as NSString).deletingPathExtension + "-\(pane.rawValue.lowercased())-\(scheme == .dark ? "dark" : "light").png")
+                      to: "\(base)-\(pane.rawValue.lowercased())-\(suffix).png")
+            }
+            // Each popover state on its own, transparent outside the rounded corners: out.png -> out-popover-on-light.png etc.
+            for (name, model) in zip(["on", "muted", "off", "listening", "error"], states) {
+                write(Popover(model: model)
+                    .background(Color(nsColor: .windowBackgroundColor), in: .rect(cornerRadius: 16, style: .continuous))
+                    .environment(\.colorScheme, scheme), to: "\(base)-popover-\(name)-\(suffix).png")
             }
         }
         // Menu bar icons (on, off, muted): out.png -> out-menubar.png
@@ -381,10 +398,21 @@ enum Snapshot {
                 .background(scheme == .dark ? Color(white: 0.15) : Color(white: 0.9))
         }
         write(VStack(spacing: 0) { icons(.light); icons(.dark) }.scaleEffect(4).frame(width: 520, height: 320),
-              to: (path as NSString).deletingPathExtension + "-menubar.png")
+              to: "\(base)-menubar.png")
         write(VStack(spacing: 0) { row(.light); row(.dark) }, to: path)
         exit(0)
     }
+}
+
+/// Switches draw in their accent colour only in an ordered-in key window of the active app; otherwise they draw grey.
+/// Snapshot claims both: this window, and an NSApplication subclass created before SwiftUI makes the real one.
+private final class KeyLookingWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var isKeyWindow: Bool { true }
+    override var isMainWindow: Bool { true }
+}
+private final class ActiveLookingApp: NSApplication {
+    override var isActive: Bool { true }
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
